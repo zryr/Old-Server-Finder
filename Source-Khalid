@@ -1,4 +1,4 @@
--- This script persists visited server IDs using local files and hops to servers in descending order of players
+-- This script persists visited server IDs using local files and hops to servers in ascending order of players
 return {
     checkUptime = function(desiredMinUptimeSeconds)
         local TeleportService = game:GetService("TeleportService")
@@ -14,36 +14,24 @@ return {
                 for serverId in string.gmatch(data, "[^\n]+") do
                     visitedServers[serverId] = true
                 end
-                print("Visited servers loaded successfully.")
             else
-                warn("Failed to load visited servers file or file does not exist.")
+                warn("Failed to load visited servers or file does not exist.")
             end
         end
 
         -- Write visited server IDs to file
         local function saveVisitedServers()
-            local success, err = pcall(function()
-                local data = ""
-                for serverId, _ in pairs(visitedServers) do
-                    data = data .. serverId .. "\n"
-                end
-                writefile(visitedServersFile, data)
-            end)
-            if not success then
-                warn("Failed to save visited servers: ", err)
-            else
-                print("Visited servers saved successfully.")
+            local data = ""
+            for serverId, _ in pairs(visitedServers) do
+                data = data .. serverId .. "\n"
             end
+            writefile(visitedServersFile, data)
         end
 
         loadVisitedServers()  -- Load visited servers at the start
 
         local function convertTimeToSeconds(timeStr)
             local hours, minutes, seconds = timeStr:match("(%d+):(%d+):(%d+)")
-            if not hours or not minutes or not seconds then
-                warn("Failed to parse time string:", timeStr)
-                return 0
-            end
             hours = tonumber(hours) or 0
             minutes = tonumber(minutes) or 0
             seconds = tonumber(seconds) or 0
@@ -51,66 +39,47 @@ return {
         end
 
         local function getServerUptimeFromGUI()
-            local success, uptimeLabel = pcall(function()
-                return player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
-            end)
-            if not success then
-                warn("Failed to retrieve uptime label from GUI.")
-                return 0
-            end
-
+            local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
             local uptimeText = uptimeLabel.Text
             local timeStr = uptimeText:match("Server Uptime:%s*(%d+:%d+:%d+)")
-            if not timeStr then
-                warn("Failed to extract time string from uptime text:", uptimeText)
-                return 0
-            end
-
-            print("Parsed Time String:", timeStr)
             return convertTimeToSeconds(timeStr)
         end
 
         local function toClipboard(text)
-            local success, err = pcall(function()
-                setclipboard(text)
-            end)
-            if success then
-                print("Copied to clipboard:", text)
-            else
-                warn("Failed to copy to clipboard:", err)
-            end
+            setclipboard(text)
         end
 
         local function flashScreen()
-            local success, err = pcall(function()
-                local screenGui = Instance.new("ScreenGui")
-                screenGui.Parent = player.PlayerGui
-                screenGui.IgnoreGuiInset = true
+            local screenGui = Instance.new("ScreenGui")
+            screenGui.Parent = player.PlayerGui
+            screenGui.IgnoreGuiInset = true
 
-                local flashFrame = Instance.new("Frame")
-                flashFrame.Size = UDim2.new(1, 0, 1, 0)
-                flashFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-                flashFrame.BorderSizePixel = 0
-                flashFrame.Parent = screenGui
+            local flashFrame = Instance.new("Frame")
+            flashFrame.Size = UDim2.new(1, 0, 1, 0)
+            flashFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+            flashFrame.BorderSizePixel = 0
+            flashFrame.Parent = screenGui
 
-                for i = 1, 5 do
-                    flashFrame.Visible = true
-                    wait(0.2)
-                    flashFrame.Visible = false
-                    wait(0.2)
-                end
-
-                screenGui:Destroy()
-            end)
-            if not success then
-                warn("Failed to flash screen:", err)
+            for i = 1, 5 do
+                flashFrame.Visible = true
+                wait(0.2)
+                flashFrame.Visible = false
+                wait(0.2)
             end
+
+            screenGui:Destroy()
+        end
+
+        local function isServerOld(serverId)
+            -- Assume this function retrieves the server uptime, you may need to adjust this logic
+            local uptimeSeconds = getServerUptimeFromGUI()
+            return uptimeSeconds >= desiredMinUptimeSeconds
         end
 
         local function serverHop()
             local gameId = game.PlaceId
             local cursor = ""
-            local serversUrlPattern = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Desc&limit=100&cursor=%s"
+            local serversUrlPattern = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100&cursor=%s"
 
             while true do
                 local serversUrl = serversUrlPattern:format(cursor)
@@ -119,36 +88,29 @@ return {
                 end)
 
                 if success and result.data then
-                    print("Server list retrieved successfully.")
                     for _, server in ipairs(result.data) do
-                        print("Checking server ID:", server.id)
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
-                            print("Attempting to join server ID:", server.id)
-                            local successJoin, errorMessage = pcall(function()
-                                TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
-                            end)
-                            if successJoin then
-                                print("Successfully joined server ID:", server.id)
-                                visitedServers[server.id] = true  -- Mark this server as visited
-                                saveVisitedServers()  -- Save visited servers to file
-                                return
+                            -- Check if the server is old
+                            if not isServerOld(server.id) then
+                                local successJoin, errorMessage = pcall(function()
+                                    TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
+                                end)
+                                if successJoin then
+                                    visitedServers[server.id] = true  -- Mark this server as visited
+                                    saveVisitedServers()  -- Save visited servers to file
+                                    return
+                                end
                             else
-                                warn("Failed to join server ID:", server.id, "Error:", errorMessage)
-                                -- Retry joining on the next server
+                                print("Server is too old, skipping:", server.id)
                             end
-                        else
-                            print("Server ID:", server.id, "is not suitable or already visited.")
                         end
                     end
 
                     if result.nextPageCursor then
                         cursor = result.nextPageCursor
                     else
-                        print("No more servers available, retrying from the beginning...")
                         cursor = ""  -- Reset cursor to start over
                     end
-                else
-                    warn("Failed to retrieve server list, retrying...")
                 end
 
                 wait(2)
@@ -157,15 +119,11 @@ return {
 
         local function checkCurrentServer()
             local serverUptimeSeconds = getServerUptimeFromGUI()
-            print("Server Uptime in Seconds:", serverUptimeSeconds)
-            print("Desired Minimum Uptime:", desiredMinUptimeSeconds)
 
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
-                print("In a server with desired uptime!")
                 toClipboard(game.JobId)
                 flashScreen()
             else
-                print("Server uptime is less than the desired; attempting to server hop.")
                 serverHop()
             end
         end
