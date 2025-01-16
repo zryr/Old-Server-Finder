@@ -12,7 +12,7 @@ return {
             if pcall(function() return readfile(visitedServersFile) end) then
                 local data = readfile(visitedServersFile)
                 for line in string.gmatch(data, "[^\n]+") do
-                    local serverId, uptime = line:match("([^|]+)|([^|]+)")
+                    local serverId, uptime = line:match("([^|]+)%s*|%s*(%d+)")
                     if serverId and uptime then
                         visitedServers[serverId] = tonumber(uptime)
                     end
@@ -28,7 +28,7 @@ return {
         local function saveVisitedServers()
             local data = ""
             for serverId, uptime in pairs(visitedServers) do
-                data = data .. serverId .. " | " .. uptime .. "\n"
+                data = data .. serverId .. " | " .. tostring(uptime) .. "\n"
             end
             writefile(visitedServersFile, data)
             print("Saved visited server ID and uptime.")
