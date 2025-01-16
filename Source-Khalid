@@ -8,7 +8,7 @@ return {
         local visitedServers = {}
 
         -- Initial wait before starting the script logic
-        wait(5)
+        wait(2)
 
         -- Check if the script is executed on the correct PlaceId
         local expectedPlaceId = 16732694052
@@ -66,7 +66,6 @@ return {
                 data = data .. serverId .. " | " .. uptime .. " | " .. timestamp .. "\n"
             end
             writefile(visitedServersFile, data)
-            print("Saved visited server ID, uptime, and timestamp.")
         end
 
         loadVisitedServers()  -- Load visited servers at the start
@@ -127,6 +126,7 @@ return {
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
                             visitedServers[server.id] = {uptime = formatTime(0), timestamp = os.date("!%I:%M:%S %p [UTC]")}
                             saveVisitedServers()  -- Save visited servers to file
+                            print("Saved visited server ID, uptime, and timestamp.")
 
                             local successJoin, errorMessage
                             repeat
@@ -160,12 +160,23 @@ return {
             -- Output the initial uptime without the server info text
             print("Initial Server Uptime: " .. serverUptime)
             
-            -- Wait for 5 seconds
-            wait(5)
+            -- If the uptime is 00:00:00, wait and check again
+            if serverUptime == "00:00:00" then
+                warn("Server uptime not loaded. Current uptime is 00:00:00.")
+                
+                -- Wait for 5 seconds
+                wait(5)
 
-            -- Output the uptime again
-            serverUptime = getServerUptimeFromGUI()
-            print("Checked Server Uptime: " .. serverUptime)
+                -- Output the uptime again
+                serverUptime = getServerUptimeFromGUI()
+                print("Checked Server Uptime: " .. serverUptime)
+
+                if serverUptime == "00:00:00" then
+                    warn("Server uptime still not loaded. Current uptime is 00:00:00.")
+                    serverHop()
+                    return
+                end
+            end
 
             local currentServerId = game.JobId
             local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
@@ -176,6 +187,7 @@ return {
                 timestamp = os.date("!%I:%M:%S %p [UTC]")
             }
             saveVisitedServers()
+            print("Saved visited server ID, uptime, and timestamp.")
 
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
                 toClipboard(currentServerId)
