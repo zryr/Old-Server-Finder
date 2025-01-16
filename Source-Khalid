@@ -7,7 +7,7 @@ return {
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
-        -- Read visited server IDs from file
+        -- Read visited server IDs from file or create the file if it doesn't exist
         local function loadVisitedServers()
             if pcall(function() return readfile(visitedServersFile) end) then
                 local data = readfile(visitedServersFile)
@@ -15,7 +15,9 @@ return {
                     visitedServers[serverId] = true
                 end
             else
-                warn("Failed to load visited servers or file does not exist.")
+                -- Create a new file if it doesn't exist
+                writefile(visitedServersFile, "")
+                print("Created new visited servers file.")
             end
         end
 
@@ -26,6 +28,7 @@ return {
                 data = data .. serverId .. "\n"
             end
             writefile(visitedServersFile, data)
+            print("Saved visited server ID.")
         end
 
         loadVisitedServers()  -- Load visited servers at the start
@@ -70,12 +73,6 @@ return {
             screenGui:Destroy()
         end
 
-        local function isServerOld(serverId)
-            -- Assume this function retrieves the server uptime, you may need to adjust this logic
-            local uptimeSeconds = getServerUptimeFromGUI()
-            return uptimeSeconds >= desiredMinUptimeSeconds
-        end
-
         local function serverHop()
             local gameId = game.PlaceId
             local cursor = ""
@@ -90,18 +87,14 @@ return {
                 if success and result.data then
                     for _, server in ipairs(result.data) do
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
-                            -- Check if the server is old
-                            if not isServerOld(server.id) then
-                                local successJoin, errorMessage = pcall(function()
-                                    TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
-                                end)
-                                if successJoin then
-                                    visitedServers[server.id] = true  -- Mark this server as visited
-                                    saveVisitedServers()  -- Save visited servers to file
-                                    return
-                                end
-                            else
-                                print("Server is too old, skipping:", server.id)
+                            visitedServers[server.id] = true  -- Mark this server as visited
+                            saveVisitedServers()  -- Save visited servers to file
+
+                            local successJoin, errorMessage = pcall(function()
+                                TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
+                            end)
+                            if successJoin then
+                                return
                             end
                         end
                     end
