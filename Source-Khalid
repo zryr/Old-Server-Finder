@@ -26,9 +26,6 @@ return {
             return
         end
 
-        -- Wait 3 seconds after executing the script
-        wait(3)
-
         -- Read visited server IDs and their uptimes from file or create the file if it doesn't exist
         local function loadVisitedServers()
             if pcall(function() return readfile(visitedServersFile) end) then
@@ -150,10 +147,14 @@ return {
 
         local function checkCurrentServer()
             local serverUptimeSeconds = getServerUptimeFromGUI()
+            
+            -- Wait for the server uptime to change from 0:0:0 for up to 30 seconds
+            local maxWaitTime = 30
+            local elapsedTime = 0
 
-            -- Wait for uptime to load if it's 0:0:0
-            while serverUptimeSeconds == 0 do
+            while serverUptimeSeconds == 0 and elapsedTime < maxWaitTime do
                 wait(1)
+                elapsedTime = elapsedTime + 1
                 serverUptimeSeconds = getServerUptimeFromGUI()
             end
 
