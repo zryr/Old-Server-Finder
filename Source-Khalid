@@ -66,6 +66,7 @@ return {
                 data = data .. serverId .. " | " .. uptime .. " | " .. timestamp .. "\n"
             end
             writefile(visitedServersFile, data)
+            print("Saved visited server ID, uptime, and timestamp.")
         end
 
         loadVisitedServers()  -- Load visited servers at the start
@@ -126,7 +127,6 @@ return {
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
                             visitedServers[server.id] = {uptime = formatTime(0), timestamp = os.date("!%I:%M:%S %p [UTC]")}
                             saveVisitedServers()  -- Save visited servers to file
-                            print("Saved visited server ID, uptime, and timestamp.")
 
                             local successJoin, errorMessage
                             repeat
@@ -187,7 +187,6 @@ return {
                 timestamp = os.date("!%I:%M:%S %p [UTC]")
             }
             saveVisitedServers()
-            print("Saved visited server ID, uptime, and timestamp.")
 
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
                 toClipboard(currentServerId)
