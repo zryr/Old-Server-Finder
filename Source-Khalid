@@ -7,14 +7,17 @@ return {
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
+        -- Wait 3 seconds after executing the script
+        wait(3)
+
         -- Read visited server IDs and their uptimes from file or create the file if it doesn't exist
         local function loadVisitedServers()
             if pcall(function() return readfile(visitedServersFile) end) then
                 local data = readfile(visitedServersFile)
                 for line in string.gmatch(data, "[^\n]+") do
-                    local serverId, uptime = line:match("([^|]+)%s*|%s*(%d+:%d+:%d+)")
-                    if serverId and uptime then
-                        visitedServers[serverId] = uptime
+                    local serverId, uptime, timestamp = line:match("([^|]+)%s*|%s*(%d+:%d+:%d+)%s*|%s*([%d:]+%s*[AP]M)")
+                    if serverId and uptime and timestamp then
+                        visitedServers[serverId] = {uptime = uptime, timestamp = timestamp}
                     end
                 end
             else
@@ -32,18 +35,19 @@ return {
             return string.format("%02d:%02d:%02d", hours, minutes, seconds)
         end
 
-        -- Write visited server IDs and their uptimes to file
+        -- Write visited server IDs, their uptimes, and timestamps to file
         local function saveVisitedServers()
             local data = ""
-            for serverId, uptime in pairs(visitedServers) do
+            for serverId, info in pairs(visitedServers) do
+                local uptime, timestamp = info.uptime, info.timestamp
                 -- Convert uptime to string if it's a boolean
                 if type(uptime) == "boolean" then
                     uptime = tostring(uptime)
                 end
-                data = data .. serverId .. " | " .. uptime .. "\n"
+                data = data .. serverId .. " | " .. uptime .. " | " .. timestamp .. "\n"
             end
             writefile(visitedServersFile, data)
-            print("Saved visited server ID and uptime.")
+            print("Saved visited server ID, uptime, and timestamp.")
         end
 
         loadVisitedServers()  -- Load visited servers at the start
@@ -102,7 +106,7 @@ return {
                 if success and result.data then
                     for _, server in ipairs(result.data) do
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
-                            visitedServers[server.id] = formatTime(0)  -- Mark this server as visited with default uptime
+                            visitedServers[server.id] = {uptime = formatTime(0), timestamp = os.date("!%I:%M:%S %p")}
                             saveVisitedServers()  -- Save visited servers to file
 
                             local successJoin, errorMessage = pcall(function()
@@ -127,10 +131,20 @@ return {
 
         local function checkCurrentServer()
             local serverUptimeSeconds = getServerUptimeFromGUI()
+
+            -- Wait for uptime to load if it's 0:0:0
+            while serverUptimeSeconds == 0 do
+                wait(1)
+                serverUptimeSeconds = getServerUptimeFromGUI()
+            end
+
             local currentServerId = game.JobId
 
-            -- Save the current server's uptime in hh:mm:ss format
-            visitedServers[currentServerId] = formatTime(serverUptimeSeconds)
+            -- Save the current server's uptime in hh:mm:ss format and log the timestamp
+            visitedServers[currentServerId] = {
+                uptime = formatTime(serverUptimeSeconds),
+                timestamp = os.date("!%I:%M:%S %p")
+            }
             saveVisitedServers()
 
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
