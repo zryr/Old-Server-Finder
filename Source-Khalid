@@ -12,9 +12,9 @@ return {
             if pcall(function() return readfile(visitedServersFile) end) then
                 local data = readfile(visitedServersFile)
                 for line in string.gmatch(data, "[^\n]+") do
-                    local serverId, uptime = line:match("([^|]+)%s*|%s*(%d+)")
+                    local serverId, uptime = line:match("([^|]+)%s*|%s*(%d+:%d+:%d+)")
                     if serverId and uptime then
-                        visitedServers[serverId] = tonumber(uptime)
+                        visitedServers[serverId] = uptime
                     end
                 end
             else
@@ -24,11 +24,19 @@ return {
             end
         end
 
+        -- Convert seconds to hh:mm:ss format
+        local function formatTime(seconds)
+            local hours = math.floor(seconds / 3600)
+            local minutes = math.floor((seconds % 3600) / 60)
+            local seconds = seconds % 60
+            return string.format("%02d:%02d:%02d", hours, minutes, seconds)
+        end
+
         -- Write visited server IDs and their uptimes to file
         local function saveVisitedServers()
             local data = ""
             for serverId, uptime in pairs(visitedServers) do
-                data = data .. serverId .. " | " .. tostring(uptime) .. "\n"
+                data = data .. serverId .. " | " .. uptime .. "\n"
             end
             writefile(visitedServersFile, data)
             print("Saved visited server ID and uptime.")
@@ -117,8 +125,8 @@ return {
             local serverUptimeSeconds = getServerUptimeFromGUI()
             local currentServerId = game.JobId
 
-            -- Save the current server's uptime
-            visitedServers[currentServerId] = serverUptimeSeconds
+            -- Save the current server's uptime in hh:mm:ss format
+            visitedServers[currentServerId] = formatTime(serverUptimeSeconds)
             saveVisitedServers()
 
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
