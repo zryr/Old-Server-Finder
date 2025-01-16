@@ -7,6 +7,9 @@ return {
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
+        -- Initial wait before starting the script logic
+        wait(5)
+
         -- Check if the script is executed on the correct PlaceId
         local expectedPlaceId = 16732694052
         if game.PlaceId ~= expectedPlaceId then
@@ -79,7 +82,7 @@ return {
         local function getServerUptimeFromGUI()
             local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
             local uptimeText = uptimeLabel.Text
-            local timeStr = uptimeText:match("Server Uptime:%s*(%d+:%d+:%d+)")
+            local timeStr = uptimeText:match("(%d+:%d+:%d+)")
             return timeStr
         end
 
@@ -147,16 +150,16 @@ return {
 
         local function checkCurrentServer()
             local serverUptime = getServerUptimeFromGUI()
-            
-            -- Wait for the server uptime to change from 00:00:00 for up to 15 seconds
-            local maxWaitTime = 15
-            local elapsedTime = 0
 
-            while serverUptime == "00:00:00" and elapsedTime < maxWaitTime do
-                wait(1)
-                elapsedTime = elapsedTime + 1
-                serverUptime = getServerUptimeFromGUI()
-            end
+            -- Output the initial uptime without the server info text
+            print("Initial Server Uptime: " .. serverUptime)
+            
+            -- Wait for 10 seconds
+            wait(10)
+
+            -- Output the uptime again
+            serverUptime = getServerUptimeFromGUI()
+            print("Checked Server Uptime: " .. serverUptime)
 
             local currentServerId = game.JobId
             local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
