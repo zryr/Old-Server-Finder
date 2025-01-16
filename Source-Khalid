@@ -90,7 +90,7 @@ return {
             setclipboard(text)
         end
 
-        local function flashScreen()
+        local function flashScreenUntilInteraction()
             local screenGui = Instance.new("ScreenGui")
             screenGui.Parent = player.PlayerGui
             screenGui.IgnoreGuiInset = true
@@ -101,14 +101,11 @@ return {
             flashFrame.BorderSizePixel = 0
             flashFrame.Parent = screenGui
 
-            for i = 1, 5 do
-                flashFrame.Visible = true
-                wait(0.2)
-                flashFrame.Visible = false
-                wait(0.2)
+            local function removeFlash()
+                screenGui:Destroy()
             end
 
-            screenGui:Destroy()
+            flashFrame.InputBegan:Connect(removeFlash) -- Remove on user interaction
         end
 
         local function serverHop()
@@ -181,17 +178,17 @@ return {
             local currentServerId = game.JobId
             local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
 
-            -- Save the current server's uptime in hh:mm:ss format and log the timestamp
-            visitedServers[currentServerId] = {
-                uptime = serverUptime,
-                timestamp = os.date("!%I:%M:%S %p [UTC]")
-            }
-            saveVisitedServers()
-
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
                 toClipboard(currentServerId)
-                flashScreen()
+                flashScreenUntilInteraction()
+                print("Old server has been found, you're welcome!")
             else
+                -- Save the current server's uptime in hh:mm:ss format and log the timestamp
+                visitedServers[currentServerId] = {
+                    uptime = serverUptime,
+                    timestamp = os.date("!%I:%M:%S %p [UTC]")
+                }
+                saveVisitedServers()
                 serverHop()
             end
         end
