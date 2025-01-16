@@ -1,7 +1,4 @@
 local scriptFunctions = loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
 
--- Set the player range
-scriptFunctions.setPlayerRange(1, 15) -- Minimum, Maximum Players
-
 -- Check server uptime
 scriptFunctions.checkUptime(216000) -- Set the desired minimum uptime in seconds (60 hours)
