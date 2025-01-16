@@ -1,4 +1,4 @@
--- This script persists visited server IDs using local files and hops to servers in ascending order of players
+-- This script persists visited server IDs and their uptimes using local files and hops to servers in ascending order of players
 return {
     checkUptime = function(desiredMinUptimeSeconds)
         local TeleportService = game:GetService("TeleportService")
@@ -7,12 +7,15 @@ return {
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
-        -- Read visited server IDs from file or create the file if it doesn't exist
+        -- Read visited server IDs and their uptimes from file or create the file if it doesn't exist
         local function loadVisitedServers()
             if pcall(function() return readfile(visitedServersFile) end) then
                 local data = readfile(visitedServersFile)
-                for serverId in string.gmatch(data, "[^\n]+") do
-                    visitedServers[serverId] = true
+                for line in string.gmatch(data, "[^\n]+") do
+                    local serverId, uptime = line:match("([^|]+)|([^|]+)")
+                    if serverId and uptime then
+                        visitedServers[serverId] = tonumber(uptime)
+                    end
                 end
             else
                 -- Create a new file if it doesn't exist
@@ -21,14 +24,14 @@ return {
             end
         end
 
-        -- Write visited server IDs to file
+        -- Write visited server IDs and their uptimes to file
         local function saveVisitedServers()
             local data = ""
-            for serverId, _ in pairs(visitedServers) do
-                data = data .. serverId .. "\n"
+            for serverId, uptime in pairs(visitedServers) do
+                data = data .. serverId .. " | " .. uptime .. "\n"
             end
             writefile(visitedServersFile, data)
-            print("Saved visited server ID.")
+            print("Saved visited server ID and uptime.")
         end
 
         loadVisitedServers()  -- Load visited servers at the start
@@ -112,9 +115,14 @@ return {
 
         local function checkCurrentServer()
             local serverUptimeSeconds = getServerUptimeFromGUI()
+            local currentServerId = game.JobId
+
+            -- Save the current server's uptime
+            visitedServers[currentServerId] = serverUptimeSeconds
+            saveVisitedServers()
 
             if serverUptimeSeconds >= desiredMinUptimeSeconds then
-                toClipboard(game.JobId)
+                toClipboard(currentServerId)
                 flashScreen()
             else
                 serverHop()
