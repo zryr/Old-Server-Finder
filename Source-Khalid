@@ -50,6 +50,10 @@ return {
         local function serverHop()
             local gameId = game.PlaceId
             local serversUrl = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Desc&limit=100"
+            
+            -- Ensure minPlayers and maxPlayers are set
+            local minPlayers = _G.minPlayers or 0
+            local maxPlayers = _G.maxPlayers or math.huge
 
             while true do
                 local success, result = pcall(function()
@@ -59,7 +63,8 @@ return {
                 if success and result.data then
                     print("Server list retrieved successfully.")
                     for _, server in ipairs(result.data) do
-                        if server.id ~= game.JobId and server.playing >= minPlayers and server.playing <= maxPlayers and not server.private then
+                        -- Safely compare player counts
+                        if server.id ~= game.JobId and (server.playing or 0) >= minPlayers and (server.playing or 0) <= maxPlayers and not server.private then
                             TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
                             return
                         end
