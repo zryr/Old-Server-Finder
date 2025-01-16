@@ -128,12 +128,18 @@ return {
                             visitedServers[server.id] = {uptime = formatTime(0), timestamp = os.date("!%I:%M:%S %p [UTC]")}
                             saveVisitedServers()  -- Save visited servers to file
 
-                            local successJoin, errorMessage = pcall(function()
-                                TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
-                            end)
-                            if successJoin then
-                                return
-                            end
+                            local successJoin, errorMessage
+                            repeat
+                                successJoin, errorMessage = pcall(function()
+                                    TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
+                                end)
+                                if not successJoin then
+                                    print("Teleport Error: " .. tostring(errorMessage) .. ". Retrying...")
+                                    wait(2) -- Wait a bit before retrying
+                                end
+                            until successJoin
+
+                            return
                         end
                     end
 
@@ -154,8 +160,8 @@ return {
             -- Output the initial uptime without the server info text
             print("Initial Server Uptime: " .. serverUptime)
             
-            -- Wait for 10 seconds
-            wait(10)
+            -- Wait for 5 seconds
+            wait(5)
 
             -- Output the uptime again
             serverUptime = getServerUptimeFromGUI()
