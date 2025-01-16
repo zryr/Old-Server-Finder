@@ -36,6 +36,10 @@ return {
         local function saveVisitedServers()
             local data = ""
             for serverId, uptime in pairs(visitedServers) do
+                -- Convert uptime to string if it's a boolean
+                if type(uptime) == "boolean" then
+                    uptime = tostring(uptime)
+                end
                 data = data .. serverId .. " | " .. uptime .. "\n"
             end
             writefile(visitedServersFile, data)
@@ -98,7 +102,7 @@ return {
                 if success and result.data then
                     for _, server in ipairs(result.data) do
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
-                            visitedServers[server.id] = true  -- Mark this server as visited
+                            visitedServers[server.id] = formatTime(0)  -- Mark this server as visited with default uptime
                             saveVisitedServers()  -- Save visited servers to file
 
                             local successJoin, errorMessage = pcall(function()
