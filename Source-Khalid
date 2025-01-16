@@ -7,6 +7,25 @@ return {
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
+        -- Check if the script is executed on the correct PlaceId
+        local expectedPlaceId = 16732694052
+        if game.PlaceId ~= expectedPlaceId then
+            local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
+            local notifications = notificationLibrary.new({
+                NotificationLifetime = 3,
+                NotificationPosition = "Middle",
+                TextFont = Enum.Font.Code,
+                TextColor = Color3.fromRGB(255, 255, 255),
+                TextSize = 15,
+                TextStrokeTransparency = 0,
+                TextStrokeColor = Color3.fromRGB(0, 0, 0)
+            })
+
+            notifications:BuildNotificationUI()
+            notifications:Notify("This script is for Fisch only!")
+            return
+        end
+
         -- Wait 3 seconds after executing the script
         wait(3)
 
@@ -15,7 +34,7 @@ return {
             if pcall(function() return readfile(visitedServersFile) end) then
                 local data = readfile(visitedServersFile)
                 for line in string.gmatch(data, "[^\n]+") do
-                    local serverId, uptime, timestamp = line:match("([^|]+)%s*|%s*(%d+:%d+:%d+)%s*|%s*([%d:]+%s*[AP]M)")
+                    local serverId, uptime, timestamp = line:match("([^|]+)%s*|%s*(%d+:%d+:%d+)%s*|%s*([%d:]+%s*[AP]M %[UTC%])")
                     if serverId and uptime and timestamp then
                         visitedServers[serverId] = {uptime = uptime, timestamp = timestamp}
                     end
@@ -106,7 +125,7 @@ return {
                 if success and result.data then
                     for _, server in ipairs(result.data) do
                         if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
-                            visitedServers[server.id] = {uptime = formatTime(0), timestamp = os.date("!%I:%M:%S %p")}
+                            visitedServers[server.id] = {uptime = formatTime(0), timestamp = os.date("!%I:%M:%S %p [UTC]")}
                             saveVisitedServers()  -- Save visited servers to file
 
                             local successJoin, errorMessage = pcall(function()
@@ -143,7 +162,7 @@ return {
             -- Save the current server's uptime in hh:mm:ss format and log the timestamp
             visitedServers[currentServerId] = {
                 uptime = formatTime(serverUptimeSeconds),
-                timestamp = os.date("!%I:%M:%S %p")
+                timestamp = os.date("!%I:%M:%S %p [UTC]")
             }
             saveVisitedServers()
 
