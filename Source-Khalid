@@ -92,20 +92,27 @@ return {
 
         local function flashScreenUntilInteraction()
             local screenGui = Instance.new("ScreenGui")
+            screenGui.DisplayOrder = 1000  -- High display order to ensure it overlays above other GUI elements
             screenGui.Parent = player.PlayerGui
             screenGui.IgnoreGuiInset = true
 
-            local flashFrame = Instance.new("Frame")
-            flashFrame.Size = UDim2.new(1, 0, 1, 0)
-            flashFrame.BackgroundColor3 = Color3.new(1, 1, 1)
-            flashFrame.BorderSizePixel = 0
-            flashFrame.Parent = screenGui
+            local flashButton = Instance.new("TextButton")
+            flashButton.Size = UDim2.new(1, 0, 1, 0)
+            flashButton.BackgroundColor3 = Color3.new(1, 1, 1)
+            flashButton.BorderSizePixel = 0
+            flashButton.Text = ""  -- No text to make it appear as a plain white overlay
+            flashButton.Parent = screenGui
+
+            -- Debug statements
+            print("Flash screen button created.")
+            print("Waiting for user interaction to remove flash...")
 
             local function removeFlash()
+                print("User interaction detected. Removing flash screen.")
                 screenGui:Destroy()
             end
 
-            flashFrame.InputBegan:Connect(removeFlash) -- Remove on user interaction
+            flashButton.MouseButton1Click:Connect(removeFlash) -- Remove on user interaction
         end
 
         local function serverHop()
