@@ -1,54 +1,98 @@
-return function(minUptimeSeconds)
-    local defaultMinUptimeSeconds = 216000 -- Default value (60 hours)
-    minUptimeSeconds = minUptimeSeconds or defaultMinUptimeSeconds
+-- This script returns two functions: checkUptime and setPlayerRange
+return {
+    checkUptime = function(desiredMinUptimeSeconds)
+        local TeleportService = game:GetService("TeleportService")
+        local HttpService = game:GetService("HttpService")
+        local player = game.Players.LocalPlayer
 
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService = game:GetService("HttpService")
-    local player = game.Players.LocalPlayer
-
-    -- Function to convert time in "HH:MM:SS" format to seconds
-    local function convertTimeToSeconds(timeStr)
-        local hours, minutes, seconds = timeStr:match("(%d+):(%d+):(%d+)")
-        hours = tonumber(hours)
-        minutes = tonumber(minutes)
-        seconds = tonumber(seconds)
-        return (hours * 3600) + (minutes * 60) + seconds
-    end
-
-    local function getServerUptimeFromGUI()
-        local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
-        local uptimeText = uptimeLabel.Text
-        local timeStr = uptimeText:match("Server Uptime:%s*(%d+:%d+:%d+)")
-        return convertTimeToSeconds(timeStr)
-    end
-
-    local function toClipboard(text)
-        setclipboard(text)
-    end
-
-    local function serverHop()
-        local gameId = game.PlaceId
-        local serversUrl = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100"
-
-        local success, result = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(serversUrl))
-        end)
-
-        if success and result.data then
-            for _, server in ipairs(result.data) do
-                if server.id ~= game.JobId and server.playing < server.maxPlayers then
-                    local jobId = server.id
-                    toClipboard(jobId)
-                    return
-                end
-            end
-        else
-            warn("Failed to retrieve server list.")
+        local function convertTimeToSeconds(timeStr)
+            local hours, minutes, seconds = timeStr:match("(%d+):(%d+):(%d+)")
+            hours = tonumber(hours) or 0
+            minutes = tonumber(minutes) or 0
+            seconds = tonumber(seconds) or 0
+            return (hours * 3600) + (minutes * 60) + seconds
         end
-    end
 
-    local serverUptimeSeconds = getServerUptimeFromGUI()
-    if serverUptimeSeconds < minUptimeSeconds then
-        serverHop()
+        local function getServerUptimeFromGUI()
+            local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
+            local uptimeText = uptimeLabel.Text
+            local timeStr = uptimeText:match("Server Uptime:%s*(%d+:%d+:%d+)")
+            print("Parsed Time String:", timeStr)
+            return convertTimeToSeconds(timeStr)
+        end
+
+        local function toClipboard(text)
+            setclipboard(text)
+            print("Copied to clipboard:", text)
+        end
+
+        local function flashScreen()
+            local screenGui = Instance.new("ScreenGui")
+            screenGui.Parent = player.PlayerGui
+            screenGui.IgnoreGuiInset = true
+
+            local flashFrame = Instance.new("Frame")
+            flashFrame.Size = UDim2.new(1, 0, 1, 0)
+            flashFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+            flashFrame.BorderSizePixel = 0
+            flashFrame.Parent = screenGui
+
+            for i = 1, 5 do
+                flashFrame.Visible = true
+                wait(0.2)
+                flashFrame.Visible = false
+                wait(0.2)
+            end
+
+            screenGui:Destroy()
+        end
+
+        local function serverHop()
+            local gameId = game.PlaceId
+            local serversUrl = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Desc&limit=100"
+
+            while true do
+                local success, result = pcall(function()
+                    return HttpService:JSONDecode(game:HttpGet(serversUrl))
+                end)
+
+                if success and result.data then
+                    print("Server list retrieved successfully.")
+                    for _, server in ipairs(result.data) do
+                        if server.id ~= game.JobId and server.playing >= minPlayers and server.playing <= maxPlayers and not server.private then
+                            TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
+                            return
+                        end
+                    end
+                    print("No suitable servers found, retrying...")
+                else
+                    warn("Failed to retrieve server list, retrying...")
+                end
+
+                wait(2)
+            end
+        end
+
+        local function checkCurrentServer()
+            local serverUptimeSeconds = getServerUptimeFromGUI()
+            print("Server Uptime in Seconds:", serverUptimeSeconds)
+            print("Desired Minimum Uptime:", desiredMinUptimeSeconds)
+
+            if serverUptimeSeconds >= desiredMinUptimeSeconds then
+                print("In a server with desired uptime!")
+                toClipboard(game.JobId)
+                flashScreen()
+            else
+                print("Server uptime is less than the desired; attempting to server hop.")
+                serverHop()
+            end
+        end
+
+        checkCurrentServer()
+    end,
+
+    setPlayerRange = function(minPlayers, maxPlayers)
+        _G.minPlayers = minPlayers
+        _G.maxPlayers = maxPlayers
     end
-end
+}
