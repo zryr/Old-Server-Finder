@@ -1,4 +1,4 @@
-local scriptFunctions = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourusername/yourrepository/main/yourscript.lua"))()
+local scriptFunctions = loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
 
 -- Set the player range
 scriptFunctions.setPlayerRange(1, 15) -- Minimum, Maximum Players
