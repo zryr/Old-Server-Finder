@@ -80,7 +80,7 @@ return {
             local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
             local uptimeText = uptimeLabel.Text
             local timeStr = uptimeText:match("Server Uptime:%s*(%d+:%d+:%d+)")
-            return convertTimeToSeconds(timeStr)
+            return timeStr
         end
 
         local function toClipboard(text)
@@ -146,23 +146,24 @@ return {
         end
 
         local function checkCurrentServer()
-            local serverUptimeSeconds = getServerUptimeFromGUI()
+            local serverUptime = getServerUptimeFromGUI()
             
-            -- Wait for the server uptime to change from 0:0:0 for up to 30 seconds
-            local maxWaitTime = 30
+            -- Wait for the server uptime to change from 00:00:00 for up to 15 seconds
+            local maxWaitTime = 15
             local elapsedTime = 0
 
-            while serverUptimeSeconds == 0 and elapsedTime < maxWaitTime do
+            while serverUptime == "00:00:00" and elapsedTime < maxWaitTime do
                 wait(1)
                 elapsedTime = elapsedTime + 1
-                serverUptimeSeconds = getServerUptimeFromGUI()
+                serverUptime = getServerUptimeFromGUI()
             end
 
             local currentServerId = game.JobId
+            local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
 
             -- Save the current server's uptime in hh:mm:ss format and log the timestamp
             visitedServers[currentServerId] = {
-                uptime = formatTime(serverUptimeSeconds),
+                uptime = serverUptime,
                 timestamp = os.date("!%I:%M:%S %p [UTC]")
             }
             saveVisitedServers()
