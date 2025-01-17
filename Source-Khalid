@@ -1,21 +1,23 @@
--- Script content: Define the function to check uptime
+-- Function to notify the user
+local function notify(title, message)
+    local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
+    local notifications = notificationLibrary.new({
+        NotificationLifetime = 3,
+        NotificationPosition = "Middle",
+        TextFont = Enum.Font.Code,
+        TextColor = Color3.fromRGB(255, 255, 255),
+        TextSize = 15,
+        TextStrokeTransparency = 0,
+        TextStrokeColor = Color3.fromRGB(0, 0, 0)
+    })
+
+    notifications:BuildNotificationUI()
+    notifications:Notify(title, message)
+end
+
+-- Function to check uptime
 function checkUptime(desiredUptime)
-    local function notify(message)
-        local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
-        local notifications = notificationLibrary.new({
-            NotificationLifetime = 3,
-            NotificationPosition = "Middle",
-            TextFont = Enum.Font.Code,
-            TextColor = Color3.fromRGB(255, 255, 255),
-            TextSize = 15,
-            TextStrokeTransparency = 0,
-            TextStrokeColor = Color3.fromRGB(0, 0, 0)
-        })
-
-        notifications:BuildNotificationUI()
-        notifications:Notify(message)
-    end
-
+    -- Your script logic here...
     local TeleportService = game:GetService("TeleportService")
     local HttpService = game:GetService("HttpService")
     local player = game.Players.LocalPlayer
@@ -28,10 +30,11 @@ function checkUptime(desiredUptime)
     -- Check if the script is executed on the correct PlaceId
     local expectedPlaceId = 16732694052
     if game.PlaceId ~= expectedPlaceId then
-        notify("Wrong place! This script is for Fisch only!")
+        notify("Error", "Wrong place! This script is for Fisch only!")
         return
     end
 
+    -- Load visited servers from file
     local function loadVisitedServers()
         if pcall(function() return readfile(visitedServersFile) end) then
             local data = readfile(visitedServersFile)
@@ -43,10 +46,11 @@ function checkUptime(desiredUptime)
             end
         else
             writefile(visitedServersFile, "")
-            notify("Created new visited servers file.")
+            notify("Info", "Created new visited servers file.")
         end
     end
 
+    -- Save visited servers to file
     local function saveVisitedServers()
         local data = ""
         for serverId, info in pairs(visitedServers) do
@@ -57,6 +61,7 @@ function checkUptime(desiredUptime)
 
     loadVisitedServers()
 
+    -- Get server uptime from GUI
     local function getServerUptimeFromGUI()
         local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
         local uptimeText = uptimeLabel.Text
@@ -64,6 +69,7 @@ function checkUptime(desiredUptime)
         return timeStr
     end
 
+    -- Get update version from GUI
     local function getUpdateVersionFromGUI()
         local versionLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("version")
         local versionText = versionLabel.Text
@@ -71,10 +77,12 @@ function checkUptime(desiredUptime)
         return versionStr
     end
 
+    -- Copy text to clipboard
     local function toClipboard(text)
         setclipboard(text)
     end
 
+    -- Flash screen until user interaction
     local function flashScreenUntilInteraction(callback)
         local screenGui = Instance.new("ScreenGui")
         screenGui.DisplayOrder = 1000
@@ -109,6 +117,7 @@ function checkUptime(desiredUptime)
         end
     end
 
+    -- Server hop logic
     local function serverHop()
         local gameId = game.PlaceId
         local cursor = ""
@@ -157,6 +166,7 @@ function checkUptime(desiredUptime)
         end
     end
 
+    -- Check current server logic
     local function checkCurrentServer()
         local serverUptime = getServerUptimeFromGUI()
         local serverVersion = getUpdateVersionFromGUI()
@@ -188,7 +198,7 @@ function checkUptime(desiredUptime)
         if serverUptime >= desiredUptime then
             toClipboard(currentServerId)
             flashScreenUntilInteraction(function()
-                notify("Old server has been found, you're welcome!") -- Notification appears after user clicks the flash screen
+                notify("Success", "Old server has been found, you're welcome!") -- Notification appears after user clicks the flash screen
             end)
         else
             visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
@@ -199,4 +209,21 @@ function checkUptime(desiredUptime)
     end
 
     checkCurrentServer()
+end
+
+-- Call the function with your desired uptime
+checkUptime("60:00:00") -- Set the desired minimum uptime in "hh:mm:ss"
+
+-- Prepare for server hop with auto-execution
+local teleportScript = [[
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
+    checkUptime("60:00:00")
+]]
+
+if syn and syn.queue_on_teleport then
+    syn.queue_on_teleport(teleportScript)
+elseif queue_on_teleport then
+    queue_on_teleport(teleportScript)
+else
+    notify('Incompatible Exploit', 'Your exploit does not support this command (missing queue_on_teleport or equivalent)')
 end
