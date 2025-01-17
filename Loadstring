@@ -1,3 +1,3 @@
-local scriptFunctions = loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
 
-scriptFunctions.checkUptime("60:00:00") -- Set the desired minimum uptime in "hh:mm:ss"
+checkUptime("09:30:01") -- Set the desired minimum uptime in "hh:mm:ss" (40 Hours, 30 Minutes, 1 Second)
