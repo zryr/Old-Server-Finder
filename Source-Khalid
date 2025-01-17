@@ -1,20 +1,6 @@
--- Load script functions from the URL
-local scriptFunctions = loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
-
--- Assuming the loaded script has a checkUptime function
-scriptFunctions.checkUptime = function(desiredMinUptime)
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService = game:GetService("HttpService")
-    local player = game.Players.LocalPlayer
-    local visitedServersFile = "visited_servers.txt"
-    local visitedServers = {}
-
-    -- Initial wait before starting the script logic
-    wait(2)
-
-    -- Check if the script is executed on the correct PlaceId
-    local expectedPlaceId = 16732694052
-    if game.PlaceId ~= expectedPlaceId then
+-- Script content: Define the function to check uptime
+function checkUptime(desiredUptime)
+    local function notify(message)
         local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
         local notifications = notificationLibrary.new({
             NotificationLifetime = 3,
@@ -27,43 +13,49 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
         })
 
         notifications:BuildNotificationUI()
-        notifications:Notify("This script is for Fisch only!")
+        notifications:Notify(message)
+    end
+
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService = game:GetService("HttpService")
+    local player = game.Players.LocalPlayer
+    local visitedServersFile = "visited_servers.txt"
+    local visitedServers = {}
+
+    -- Initial wait before starting the script logic
+    wait(2)
+
+    -- Check if the script is executed on the correct PlaceId
+    local expectedPlaceId = 16732694052
+    if game.PlaceId ~= expectedPlaceId then
+        notify("Wrong place! This script is for Fisch only!")
         return
     end
 
-    -- Read visited server IDs and their uptimes from file or create the file if it doesn't exist
     local function loadVisitedServers()
         if pcall(function() return readfile(visitedServersFile) end) then
             local data = readfile(visitedServersFile)
             for line in string.gmatch(data, "[^\n]+") do
-                local serverId, uptime, timestamp = line:match("([^|]+)%s*|%s*(%d+:%d+:%d+)%s*|%s*([%d:]+%s*[AP]M %[UTC%])")
-                if serverId and uptime and timestamp then
-                    visitedServers[serverId] = {uptime = uptime, timestamp = timestamp}
+                local serverId, info = line:match("([^|]+)%s*|%s*(.*)")
+                if serverId and info then
+                    visitedServers[serverId] = info
                 end
             end
         else
-            -- Create a new file if it doesn't exist
             writefile(visitedServersFile, "")
-            print("Created new visited servers file.")
+            notify("Created new visited servers file.")
         end
     end
 
-    -- Write visited server IDs, their uptimes, and timestamps to file
     local function saveVisitedServers()
         local data = ""
         for serverId, info in pairs(visitedServers) do
-            local uptime, timestamp = info.uptime, info.timestamp
-            -- Convert uptime to string if it's a boolean
-            if type(uptime) == "boolean" then
-                uptime = tostring(uptime)
-            end
-            data = data .. serverId .. " | " .. uptime .. " | " .. timestamp .. "\n"
+            data = data .. serverId .. " | " .. info .. "\n"
         end
         writefile(visitedServersFile, data)
-        print("Saved visited server ID, uptime, and timestamp.")
     end
 
-    loadVisitedServers()  -- Load visited servers at the start
+    loadVisitedServers()
 
     local function getServerUptimeFromGUI()
         local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
@@ -72,13 +64,20 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
         return timeStr
     end
 
+    local function getUpdateVersionFromGUI()
+        local versionLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("version")
+        local versionText = versionLabel.Text
+        local versionStr = versionText:match("Update Version: (%d+%.%d+)")
+        return versionStr
+    end
+
     local function toClipboard(text)
         setclipboard(text)
     end
 
-    local function flashScreenUntilInteraction()
+    local function flashScreenUntilInteraction(callback)
         local screenGui = Instance.new("ScreenGui")
-        screenGui.DisplayOrder = 1000  -- High display order to ensure it overlays above other GUI elements
+        screenGui.DisplayOrder = 1000
         screenGui.Parent = player.PlayerGui
         screenGui.IgnoreGuiInset = true
 
@@ -86,10 +85,9 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
         flashButton.Size = UDim2.new(1, 0, 1, 0)
         flashButton.BackgroundColor3 = Color3.new(1, 1, 1)
         flashButton.BorderSizePixel = 0
-        flashButton.Text = ""  -- No text to make it appear as a plain white overlay
+        flashButton.Text = ""
         flashButton.Parent = screenGui
 
-        -- Debug statements
         print("Flash screen button created. Waiting for user interaction to stop flashing...")
 
         local flashing = true
@@ -98,14 +96,16 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
             print("User interaction detected. Stopping flash screen.")
             flashing = false
             screenGui:Destroy()
+            if callback then
+                callback() -- Trigger the notification after the flash screen is closed
+            end
         end
 
-        flashButton.MouseButton1Click:Connect(removeFlash) -- Remove on user interaction
+        flashButton.MouseButton1Click:Connect(removeFlash)
 
-        -- Create a flashing effect
         while flashing do
             flashButton.Visible = not flashButton.Visible
-            wait(0.5) -- Flash interval; adjust this to make it faster or slower
+            wait(0.5)
         end
     end
 
@@ -122,10 +122,7 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
 
             if success and result.data then
                 for _, server in ipairs(result.data) do
-                    if server.id ~= game.JobId and not server.private and not visitedServers[server.id] then
-                        visitedServers[server.id] = {uptime = "00:00:00", timestamp = os.date("!%I:%M:%S %p [UTC]")}
-                        saveVisitedServers()  -- Save visited servers to file
-
+                    if server.id ~= game.JobId and not server.private and not visitedServers[server.id] and server.playing < server.maxPlayers then
                         local successJoin, errorMessage
                         repeat
                             successJoin, errorMessage = pcall(function()
@@ -133,18 +130,26 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
                             end)
                             if not successJoin then
                                 print("Teleport Error: " .. tostring(errorMessage) .. ". Retrying...")
-                                wait(2) -- Wait a bit before retrying
+                                if errorMessage:match("GameFull") or errorMessage:match("Unauthorized") then
+                                    print("Encountered game full or unauthorized error. Waiting 5 seconds before trying again...")
+                                    wait(5)
+                                    break -- Exit the retry loop to find a different server
+                                else
+                                    wait(5) -- Wait before retrying for other errors
+                                end
                             end
                         until successJoin
 
-                        return
+                        if successJoin then
+                            return
+                        end
                     end
                 end
 
                 if result.nextPageCursor then
                     cursor = result.nextPageCursor
                 else
-                    cursor = ""  -- Reset cursor to start over
+                    cursor = ""
                 end
             end
 
@@ -154,47 +159,44 @@ scriptFunctions.checkUptime = function(desiredMinUptime)
 
     local function checkCurrentServer()
         local serverUptime = getServerUptimeFromGUI()
+        local serverVersion = getUpdateVersionFromGUI()
 
-        -- Output the initial uptime without the server info text
-        print("Initial Server Uptime: " .. serverUptime)
-        
-        -- If the uptime is 00:00:00, wait and check again
+        print("Initial Server Uptime: " .. (serverUptime or "(failed to get server info)"))
+        print("Server Version: " .. (serverVersion or "(failed to get server info)"))
+
         if serverUptime == "00:00:00" then
             warn("Server uptime not loaded. Current uptime is 00:00:00.")
-            
-            -- Wait for 5 seconds
-            wait(5)
-
-            -- Output the uptime again
+            wait(10)  -- Wait for 10 seconds to re-check
             serverUptime = getServerUptimeFromGUI()
-            print("Checked Server Uptime: " .. serverUptime)
+            serverVersion = getUpdateVersionFromGUI()
+            print("Checked Server Uptime: " .. (serverUptime or "(failed to get server info)"))
+            print("Checked Server Version: " .. (serverVersion or "(failed to get server info)"))
 
             if serverUptime == "00:00:00" then
                 warn("Server uptime still not loaded. Current uptime is 00:00:00.")
+                visitedServers[game.JobId] = "(failed to get server info)"
+                saveVisitedServers()
+                print("Server didn't meet the criteria, blacklisting it.")
                 serverHop()
                 return
             end
         end
 
         local currentServerId = game.JobId
+        local currentTimeUTC = os.date("!%I:%M:%S %p [UTC]")
 
-        if serverUptime >= desiredMinUptime then
+        if serverUptime >= desiredUptime then
             toClipboard(currentServerId)
-            flashScreenUntilInteraction()
-            print("Old server has been found, you're welcome!")
+            flashScreenUntilInteraction(function()
+                notify("Old server has been found, you're welcome!") -- Notification appears after user clicks the flash screen
+            end)
         else
-            -- Save the current server's uptime in hh:mm:ss format and log the timestamp
-            visitedServers[currentServerId] = {
-                uptime = serverUptime,
-                timestamp = os.date("!%I:%M:%S %p [UTC]")
-            }
+            visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
             saveVisitedServers()
+            print("Server didn't meet the criteria, blacklisting it.")
             serverHop()
         end
     end
 
     checkCurrentServer()
 end
-
--- Check server uptime with "hh:mm:ss" format
-scriptFunctions.checkUptime("60:00:00") -- Set the desired minimum uptime in "hh:mm:ss" format (60 hours)
