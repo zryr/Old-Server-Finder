@@ -1,4 +1,4 @@
--- Function to notify the user
+-- Function to notify the user using the notification library
 local function notify(title, message)
     local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
     local notifications = notificationLibrary.new({
@@ -12,12 +12,32 @@ local function notify(title, message)
     })
 
     notifications:BuildNotificationUI()
-    notifications:Notify(title, message)
+    notifications:Notify({Title = title, Text = message})
+end
+
+-- Unique key to identify if the script has been run in this session
+local sessionKey = "autoexecute_session.txt"
+
+-- Check if the session key file exists
+local function hasRunThisSession()
+    return isfile(sessionKey)
+end
+
+-- Mark this session as having run the script
+local function markSessionAsRun()
+    writefile(sessionKey, "1")
 end
 
 -- Function to check uptime
 function checkUptime(desiredUptime)
-    -- Your script logic here...
+    if hasRunThisSession() then
+        notify("Info", "Script execution stopped for this session.")
+        return
+    end
+
+    -- Mark as run to prevent further auto-execution in this session
+    markSessionAsRun()
+
     local TeleportService = game:GetService("TeleportService")
     local HttpService = game:GetService("HttpService")
     local player = game.Players.LocalPlayer
@@ -96,12 +116,9 @@ function checkUptime(desiredUptime)
         flashButton.Text = ""
         flashButton.Parent = screenGui
 
-        print("Flash screen button created. Waiting for user interaction to stop flashing...")
-
         local flashing = true
 
         local function removeFlash()
-            print("User interaction detected. Stopping flash screen.")
             flashing = false
             screenGui:Destroy()
             if callback then
@@ -138,9 +155,7 @@ function checkUptime(desiredUptime)
                                 TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
                             end)
                             if not successJoin then
-                                print("Teleport Error: " .. tostring(errorMessage) .. ". Retrying...")
                                 if errorMessage:match("GameFull") or errorMessage:match("Unauthorized") then
-                                    print("Encountered game full or unauthorized error. Waiting 5 seconds before trying again...")
                                     wait(5)
                                     break -- Exit the retry loop to find a different server
                                 else
@@ -171,22 +186,14 @@ function checkUptime(desiredUptime)
         local serverUptime = getServerUptimeFromGUI()
         local serverVersion = getUpdateVersionFromGUI()
 
-        print("Initial Server Uptime: " .. (serverUptime or "(failed to get server info)"))
-        print("Server Version: " .. (serverVersion or "(failed to get server info)"))
-
         if serverUptime == "00:00:00" then
-            warn("Server uptime not loaded. Current uptime is 00:00:00.")
             wait(10)  -- Wait for 10 seconds to re-check
             serverUptime = getServerUptimeFromGUI()
             serverVersion = getUpdateVersionFromGUI()
-            print("Checked Server Uptime: " .. (serverUptime or "(failed to get server info)"))
-            print("Checked Server Version: " .. (serverVersion or "(failed to get server info)"))
 
             if serverUptime == "00:00:00" then
-                warn("Server uptime still not loaded. Current uptime is 00:00:00.")
                 visitedServers[game.JobId] = "(failed to get server info)"
                 saveVisitedServers()
-                print("Server didn't meet the criteria, blacklisting it.")
                 serverHop()
                 return
             end
@@ -198,12 +205,11 @@ function checkUptime(desiredUptime)
         if serverUptime >= desiredUptime then
             toClipboard(currentServerId)
             flashScreenUntilInteraction(function()
-                notify("Success", "Old server has been found, you're welcome!") -- Notification appears after user clicks the flash screen
+                notify("Success", "Old server has been found, you're welcome!")
             end)
         else
             visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
             saveVisitedServers()
-            print("Server didn't meet the criteria, blacklisting it.")
             serverHop()
         end
     end
@@ -225,5 +231,5 @@ if syn and syn.queue_on_teleport then
 elseif queue_on_teleport then
     queue_on_teleport(teleportScript)
 else
-    notify('Incompatible Exploit', 'Your exploit does not support this command (missing queue_on_teleport or equivalent)')
+    notify("Notice", "Put the script in your autoexecute folder.")
 end
