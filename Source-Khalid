@@ -200,18 +200,3 @@ function checkUptime(desiredUptime)
 
     checkCurrentServer()
 end
-```
-
-### Step 2: Load and Use the Script
-
-You can load and use this script with the following code:
-
-```lua
--- Load the script from the provided URL
-local scriptContent = game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid")
-
--- Execute the script
-loadstring(scriptContent)()
-
--- Call the function with your desired uptime
-checkUptime("60:00:00") -- Set the desired minimum uptime in "hh:mm:ss"
