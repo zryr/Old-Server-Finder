@@ -12,7 +12,10 @@ local function notify(title, message)
     })
 
     notifications:BuildNotificationUI()
-    notifications:Notify(title, message) -- Ensure this passes title and message as separate string arguments
+    notifications:Notify({
+        Title = title,
+        Text = message
+    }) -- Correctly pass a table with Title and Text keys
 end
 
 -- Unique key to identify if the script has been run in this session
