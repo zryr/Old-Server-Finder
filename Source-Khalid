@@ -12,10 +12,7 @@ local function notify(title, message)
     })
 
     notifications:BuildNotificationUI()
-    notifications:Notify({
-        Title = title,
-        Text = message
-    }) -- Correctly pass a table with Title and Text keys
+    notifications:Notify(title .. ": " .. message) -- Concatenate title and message to ensure a string is passed
 end
 
 -- Unique key to identify if the script has been run in this session
