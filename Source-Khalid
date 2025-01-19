@@ -106,6 +106,14 @@ function checkUptime(desiredUptime)
         end
     end
 
+    local function convertTimeToSeconds(timeStr)
+        local hours, minutes, seconds = timeStr:match("(%d+):(%d+):(%d+)")
+        hours = tonumber(hours) or 0
+        minutes = tonumber(minutes) or 0
+        seconds = tonumber(seconds) or 0
+        return (hours * 3600) + (minutes * 60) + seconds
+    end
+
     local function serverHop()
         local gameId = game.PlaceId
         local cursor = ""
@@ -159,7 +167,7 @@ function checkUptime(desiredUptime)
         print("Initial Server Uptime: " .. (serverUptime or "(failed to get server info)"))
         print("Server Version: " .. (serverVersion or "(failed to get server info)"))
 
-        if serverUptime == "00:00:00" then
+        if serverUptime == "00:00:00" or not serverUptime then
             warn("Server uptime not loaded. Current uptime is 00:00:00.")
             wait(10)  -- Wait for 10 seconds to re-check
             serverUptime = getServerUptimeFromGUI()
@@ -167,7 +175,7 @@ function checkUptime(desiredUptime)
             print("Checked Server Uptime: " .. (serverUptime or "(failed to get server info)"))
             print("Checked Server Version: " .. (serverVersion or "(failed to get server info)"))
 
-            if serverUptime == "00:00:00" then
+            if serverUptime == "00:00:00" or not serverUptime then
                 warn("Server uptime still not loaded. Current uptime is 00:00:00.")
                 visitedServers[game.JobId] = "(failed to get server info)"
                 saveVisitedServers()
@@ -180,7 +188,10 @@ function checkUptime(desiredUptime)
         local currentServerId = game.JobId
         local currentTimeUTC = os.date("!%I:%M:%S %p [UTC]")
 
-        if serverUptime >= desiredUptime then
+        local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
+        local desiredUptimeSeconds = convertTimeToSeconds(desiredUptime)
+
+        if serverUptimeSeconds >= desiredUptimeSeconds then
             toClipboard(currentServerId)
             flashScreenUntilInteraction(function()
                 notify("Old server has been found, you're welcome!")
@@ -199,7 +210,7 @@ end
 -- Auto-execute setup for server hopping
 local teleportScript = [[
     loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
-    checkUptime("60:00:00")
+    checkUptime("09:30:01")
 ]]
 
 -- Queue the script for execution after teleport
@@ -223,4 +234,4 @@ else
 end
 
 -- Call the function with your desired uptime
-checkUptime("60:00:00") -- Set the desired minimum uptime in "hh:mm:ss"
+checkUptime("09:30:01") -- Set the desired minimum uptime in "hh:mm:ss"
