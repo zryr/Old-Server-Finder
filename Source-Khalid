@@ -200,9 +200,24 @@ function checkUptime(desiredUptime)
             visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
             saveVisitedServers()
             print("Server didn't meet the criteria, blacklisting it.")
+            queueScript()
             serverHop()
         end
     end
 
+    local function queueScript()
+        local scriptToQueue = [[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
+            checkUptime("]] .. desiredUptime .. [[")
+        ]]
+
+        if queue_on_teleport then
+            queue_on_teleport(scriptToQueue)
+        else
+            notify("queue_on_teleport is not supported in this environment.")
+        end
+    end
+
+    queueScript()
     checkCurrentServer()
 end
