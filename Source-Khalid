@@ -64,8 +64,7 @@ function checkUptime(desiredUptime)
 
         if success and uptimeLabel then
             local uptimeText = uptimeLabel.Text
-            local timeStr = uptimeText:match("(%d+:%d+:%d+)")
-            return timeStr
+            return uptimeText:match("(%d+:%d+:%d+)")
         else
             warn("Failed to get server uptime from GUI")
             return nil
@@ -79,8 +78,7 @@ function checkUptime(desiredUptime)
 
         if success and versionLabel then
             local versionText = versionLabel.Text
-            local versionStr = versionText:match("Update Version: (%d+%.%d+)")
-            return versionStr
+            return versionText:match("Update Version: (%d+%.%d+)")
         else
             warn("Failed to get update version from GUI")
             return nil
