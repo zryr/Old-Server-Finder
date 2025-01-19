@@ -58,21 +58,41 @@ function checkUptime(desiredUptime)
     loadVisitedServers()
 
     local function getServerUptimeFromGUI()
-        local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
-        local uptimeText = uptimeLabel.Text
-        local timeStr = uptimeText:match("(%d+:%d+:%d+)")
-        return timeStr
+        local success, uptimeLabel = pcall(function()
+            return player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
+        end)
+
+        if success and uptimeLabel then
+            local uptimeText = uptimeLabel.Text
+            local timeStr = uptimeText:match("(%d+:%d+:%d+)")
+            return timeStr
+        else
+            warn("Failed to get server uptime from GUI")
+            return nil
+        end
     end
 
     local function getUpdateVersionFromGUI()
-        local versionLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("version")
-        local versionText = versionLabel.Text
-        local versionStr = versionText:match("Update Version: (%d+%.%d+)")
-        return versionStr
+        local success, versionLabel = pcall(function()
+            return player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("version")
+        end)
+
+        if success and versionLabel then
+            local versionText = versionLabel.Text
+            local versionStr = versionText:match("Update Version: (%d+%.%d+)")
+            return versionStr
+        else
+            warn("Failed to get update version from GUI")
+            return nil
+        end
     end
 
     local function toClipboard(text)
-        setclipboard(text)
+        if setclipboard then
+            setclipboard(text)
+        else
+            warn("setclipboard function is not available")
+        end
     end
 
     local function flashScreenUntilInteraction(callback)
@@ -167,19 +187,20 @@ function checkUptime(desiredUptime)
         print("Initial Server Uptime: " .. (serverUptime or "(failed to get server info)"))
         print("Server Version: " .. (serverVersion or "(failed to get server info)"))
 
-        if serverUptime == "00:00:00" or not serverUptime then
-            warn("Server uptime not loaded. Current uptime is 00:00:00.")
+        if not serverUptime or serverUptime == "00:00:00" then
+            warn("Server uptime not loaded or is 00:00:00.")
             wait(10)  -- Wait for 10 seconds to re-check
             serverUptime = getServerUptimeFromGUI()
             serverVersion = getUpdateVersionFromGUI()
             print("Checked Server Uptime: " .. (serverUptime or "(failed to get server info)"))
             print("Checked Server Version: " .. (serverVersion or "(failed to get server info)"))
 
-            if serverUptime == "00:00:00" or not serverUptime then
-                warn("Server uptime still not loaded. Current uptime is 00:00:00.")
+            if not serverUptime or serverUptime == "00:00:00" then
+                warn("Server uptime still not loaded or is 00:00:00.")
                 visitedServers[game.JobId] = "(failed to get server info)"
                 saveVisitedServers()
                 print("Server didn't meet the criteria, blacklisting it.")
+                queueScript()
                 serverHop()
                 return
             end
@@ -214,7 +235,7 @@ function checkUptime(desiredUptime)
         if queue_on_teleport then
             queue_on_teleport(scriptToQueue)
         else
-            notify("queue_on_teleport is not supported in this environment.")
+            warn("queue_on_teleport is not supported in this environment.")
         end
     end
 
