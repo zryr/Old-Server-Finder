@@ -207,6 +207,10 @@ function checkUptime(desiredUptime)
         local currentServerId = game.JobId
         local currentTimeUTC = os.date("!%I:%M:%S %p [UTC]")
 
+        if not serverUptime then
+            error("Server uptime could not be retrieved.")
+        end
+
         local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
         local desiredUptimeSeconds = convertTimeToSeconds(desiredUptime)
 
