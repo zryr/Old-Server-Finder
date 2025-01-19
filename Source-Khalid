@@ -206,32 +206,3 @@ function checkUptime(desiredUptime)
 
     checkCurrentServer()
 end
-
--- Auto-execute setup for server hopping
-local teleportScript = [[
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()
-    checkUptime("09:30:01")
-]]
-
--- Queue the script for execution after teleport
-if queue_on_teleport then
-    queue_on_teleport(teleportScript)
-else
-    -- Notify the user to place the script in the auto-execute folder
-    local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
-    local notifications = notificationLibrary.new({
-        NotificationLifetime = 5,
-        NotificationPosition = "Middle",
-        TextFont = Enum.Font.Code,
-        TextColor = Color3.fromRGB(255, 255, 255),
-        TextSize = 15,
-        TextStrokeTransparency = 0,
-        TextStrokeColor = Color3.fromRGB(0, 0, 0)
-    })
-
-    notifications:BuildNotificationUI()
-    notifications:Notify('Please place the script in your auto-execute folder.')
-end
-
--- Call the function with your desired uptime
-checkUptime("09:30:01") -- Set the desired minimum uptime in "hh:mm:ss"
