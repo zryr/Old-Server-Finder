@@ -19,7 +19,19 @@ local function main(desiredUptime)
 
         local TeleportService = game:GetService("TeleportService")
         local HttpService = game:GetService("HttpService")
-        local player = game.Players.LocalPlayer
+        local Players = game:GetService("Players")
+
+        -- Use pcall to safely attempt to access LocalPlayer
+        local player
+        pcall(function()
+            player = Players.LocalPlayer
+        end)
+
+        if not player then
+            -- Handle the case where LocalPlayer is nil silently
+            return
+        end
+
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
