@@ -19,7 +19,15 @@ local function main(desiredUptime)
 
         local TeleportService = game:GetService("TeleportService")
         local HttpService = game:GetService("HttpService")
-        local player = game.Players.LocalPlayer
+        local Players = game:GetService("Players")
+
+        -- Attempt to get the LocalPlayer safely
+        local player = Players.LocalPlayer
+        if not player then
+            notify("LocalPlayer is not yet available.")
+            return
+        end
+
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
@@ -44,7 +52,6 @@ local function main(desiredUptime)
                 end
             else
                 writefile(visitedServersFile, "")
-                notify("Created new visited servers file.")
             end
         end
 
@@ -195,7 +202,9 @@ local function main(desiredUptime)
             if serverUptimeSeconds >= desiredUptimeSeconds then
                 toClipboard(currentServerId)
                 flashScreenUntilInteraction(function()
-                    notify("Old server has been found, you're welcome!")
+                    notify("Old Server Found! JobID is in your Clipboard")
+                    wait(3)
+                    notify("Make sure to delete the visited_servers.txt file from the executor's workspace.")
                 end)
             else
                 visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
@@ -217,6 +226,24 @@ local function main(desiredUptime)
         else
             -- Notify the user to place the script in the auto-execute folder
             notify('Please place the script in your auto-execute folder.')
+        end
+
+        -- Anti-AFK script integration
+        local GC = getconnections or get_signal_cons
+        if GC then
+            for i, v in pairs(GC(Players.LocalPlayer.Idled)) do
+                if v["Disable"] then
+                    v["Disable"](v)
+                elseif v["Disconnect"] then
+                    v["Disconnect"](v)
+                end
+            end
+        else
+            local VirtualUser = cloneref(game:GetService("VirtualUser"))
+            Players.LocalPlayer.Idled:Connect(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
         end
     end
 
