@@ -23,6 +23,11 @@ local function main(desiredUptime)
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
 
+        -- Delete the visited servers file upon script execution
+        if pcall(function() return readfile(visitedServersFile) end) then
+            delfile(visitedServersFile)
+        end
+
         -- Initial wait before starting the script logic
         wait(2)
 
@@ -44,7 +49,6 @@ local function main(desiredUptime)
                 end
             else
                 writefile(visitedServersFile, "")
-                notify("Created new visited servers file.")
             end
         end
 
@@ -195,7 +199,7 @@ local function main(desiredUptime)
             if serverUptimeSeconds >= desiredUptimeSeconds then
                 toClipboard(currentServerId)
                 flashScreenUntilInteraction(function()
-                    notify("Old server has been found, you're welcome!")
+                    notify("Old Server Found! JobID is in your Clipboard")
                 end)
             else
                 visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
