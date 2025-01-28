@@ -21,24 +21,15 @@ local function main(desiredUptime)
         local HttpService = game:GetService("HttpService")
         local Players = game:GetService("Players")
 
-        -- Use pcall to safely attempt to access LocalPlayer
-        local player
-        pcall(function()
-            player = Players.LocalPlayer
-        end)
-
+        -- Attempt to get the LocalPlayer safely
+        local player = Players.LocalPlayer
         if not player then
-            -- Handle the case where LocalPlayer is nil silently
+            notify("LocalPlayer is not yet available.")
             return
         end
 
         local visitedServersFile = "visited_servers.txt"
         local visitedServers = {}
-
-        -- Delete the visited servers file upon script execution
-        if pcall(function() return readfile(visitedServersFile) end) then
-            delfile(visitedServersFile)
-        end
 
         -- Initial wait before starting the script logic
         wait(2)
@@ -212,6 +203,8 @@ local function main(desiredUptime)
                 toClipboard(currentServerId)
                 flashScreenUntilInteraction(function()
                     notify("Old Server Found! JobID is in your Clipboard")
+                    wait(3)
+                    notify("Make sure to delete the visited_servers.txt file from the executor's workspace.")
                 end)
             else
                 visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
