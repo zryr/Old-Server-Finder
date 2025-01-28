@@ -213,7 +213,7 @@ local function main(desiredUptime)
 
         -- Queue the script for execution after teleport
         local teleportScript = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()("]] .. desiredUptime .. [[")
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/main/Source-Khalid-Beta"))()("]] .. desiredUptime .. [[")
         ]]
 
         if queue_on_teleport then
