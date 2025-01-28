@@ -1,0 +1,246 @@
+local function main(desiredUptime)
+    -- Define the function to check uptime
+    function checkUptime(desiredUptime)
+        local function notify(message)
+            local notificationLibrary = loadstring(game:HttpGet("https://raw.githubusercontent.com/laagginq/ui-libraries/main/xaxas-notification/src.lua"))()
+            local notifications = notificationLibrary.new({
+                NotificationLifetime = 3,
+                NotificationPosition = "Middle",
+                TextFont = Enum.Font.Code,
+                TextColor = Color3.fromRGB(255, 255, 255),
+                TextSize = 15,
+                TextStrokeTransparency = 0,
+                TextStrokeColor = Color3.fromRGB(0, 0, 0)
+            })
+
+            notifications:BuildNotificationUI()
+            notifications:Notify(message)
+        end
+
+        local TeleportService = game:GetService("TeleportService")
+        local HttpService = game:GetService("HttpService")
+        local player = game.Players.LocalPlayer
+        local visitedServersFile = "visited_servers.txt"
+        local visitedServers = {}
+
+        -- Initial wait before starting the script logic
+        wait(2)
+
+        -- Check if the script is executed on the correct PlaceId
+        local expectedPlaceId = 16732694052
+        if game.PlaceId ~= expectedPlaceId then
+            notify("Wrong place! This script is for Fisch only!")
+            return
+        end
+
+        local function loadVisitedServers()
+            if pcall(function() return readfile(visitedServersFile) end) then
+                local data = readfile(visitedServersFile)
+                for line in string.gmatch(data, "[^\n]+") do
+                    local serverId, info = line:match("([^|]+)%s*|%s*(.*)")
+                    if serverId and info then
+                        visitedServers[serverId] = info
+                    end
+                end
+            else
+                writefile(visitedServersFile, "")
+                notify("Created new visited servers file.")
+            end
+        end
+
+        local function saveVisitedServers()
+            local data = ""
+            for serverId, info in pairs(visitedServers) do
+                data = data .. serverId .. " | " .. info .. "\n"
+            end
+            writefile(visitedServersFile, data)
+        end
+
+        loadVisitedServers()
+
+        local function getServerUptimeFromGUI()
+            local uptimeLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("uptime")
+            local uptimeText = uptimeLabel.Text
+            local timeStr = uptimeText:match("(%d+:%d+:%d+)")
+            return timeStr
+        end
+
+        local function getUpdateVersionFromGUI()
+            local versionLabel = player.PlayerGui:WaitForChild("serverInfo"):WaitForChild("serverInfo"):WaitForChild("version")
+            local versionText = versionLabel.Text
+            local versionStr = versionText:match("Update Version: (%d+%.%d+)")
+            return versionStr
+        end
+
+        local function toClipboard(text)
+            setclipboard(text)
+        end
+
+        local function flashScreenUntilInteraction(callback)
+            local screenGui = Instance.new("ScreenGui")
+            screenGui.DisplayOrder = 1000
+            screenGui.Parent = player.PlayerGui
+            screenGui.IgnoreGuiInset = true
+
+            local flashButton = Instance.new("TextButton")
+            flashButton.Size = UDim2.new(1, 0, 1, 0)
+            flashButton.BackgroundColor3 = Color3.new(1, 1, 1)
+            flashButton.BorderSizePixel = 0
+            flashButton.Text = ""
+            flashButton.Parent = screenGui
+
+            local flashing = true
+
+            local function removeFlash()
+                flashing = false
+                screenGui:Destroy()
+                if callback then
+                    callback() -- Trigger the notification after the flash screen is closed
+                end
+            end
+
+            flashButton.MouseButton1Click:Connect(removeFlash)
+
+            while flashing do
+                flashButton.Visible = not flashButton.Visible
+                wait(0.5)
+            end
+        end
+
+        local function convertTimeToSeconds(timeStr)
+            local hours, minutes, seconds = timeStr:match("(%d+):(%d+):(%d+)")
+            hours = tonumber(hours) or 0
+            minutes = tonumber(minutes) or 0
+            seconds = tonumber(seconds) or 0
+            return (hours * 3600) + (minutes * 60) + seconds
+        end
+
+        local function serverHop()
+            local gameId = game.PlaceId
+            local cursor = ""
+            local serversUrlPattern = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100&cursor=%s"
+
+            while true do
+                local serversUrl = serversUrlPattern:format(cursor)
+                local success, result = pcall(function()
+                    return HttpService:JSONDecode(game:HttpGet(serversUrl))
+                end)
+
+                if success and result.data then
+                    for _, server in ipairs(result.data) do
+                        if server.id ~= game.JobId and not server.private and not visitedServers[server.id] and server.playing < server.maxPlayers then
+                            local successJoin, errorMessage
+                            repeat
+                                successJoin, errorMessage = pcall(function()
+                                    TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
+                                end)
+                                if not successJoin then
+                                    if errorMessage:match("GameFull") or errorMessage:match("Unauthorized") then
+                                        wait(5)
+                                        break -- Exit the retry loop to find a different server
+                                    else
+                                        wait(5) -- Wait before retrying for other errors
+                                    end
+                                end
+                            until successJoin
+
+                            if successJoin then
+                                return
+                            end
+                        end
+                    end
+
+                    if result.nextPageCursor then
+                        cursor = result.nextPageCursor
+                    else
+                        cursor = ""
+                    end
+                end
+
+                wait(2)
+            end
+        end
+
+        local function checkCurrentServer()
+            local serverUptime = getServerUptimeFromGUI()
+            local serverVersion = getUpdateVersionFromGUI()
+
+            print("Initial Server Uptime: " .. (serverUptime or "(failed to get server info)"))
+            print("Server Version: " .. (serverVersion or "(failed to get server info)"))
+
+            if serverUptime == "00:00:00" then
+                warn("Server uptime not loaded. Current uptime is 00:00:00.")
+                wait(10)  -- Wait for 10 seconds to re-check
+                serverUptime = getServerUptimeFromGUI()
+                serverVersion = getUpdateVersionFromGUI()
+                print("Checked Server Uptime: " .. (serverUptime or "(failed to get server info)"))
+                print("Checked Server Version: " .. (serverVersion or "(failed to get server info)"))
+
+                if serverUptime == "00:00:00" then
+                    warn("Server uptime still not loaded. Current uptime is 00:00:00.")
+                    visitedServers[game.JobId] = "(failed to get server info)"
+                    saveVisitedServers()
+                    print("Server didn't meet the criteria, blacklisting it.")
+                    serverHop()
+                    return
+                end
+            end
+
+            local currentServerId = game.JobId
+            local currentTimeUTC = os.date("!%I:%M:%S %p [UTC]")
+
+            local serverUptimeSeconds = convertTimeToSeconds(serverUptime)
+            local desiredUptimeSeconds = convertTimeToSeconds(desiredUptime)
+
+            if serverUptimeSeconds >= desiredUptimeSeconds then
+                toClipboard(currentServerId)
+                flashScreenUntilInteraction(function()
+                    notify("Old server has been found, you're welcome!")
+                end)
+            else
+                visitedServers[currentServerId] = serverUptime .. " | " .. (serverVersion or "Unknown Version") .. " | " .. currentTimeUTC
+                saveVisitedServers()
+                print("Server didn't meet the criteria, blacklisting it.")
+                serverHop()
+            end
+        end
+
+        checkCurrentServer()
+
+        -- Queue the script for execution after teleport
+        local teleportScript = [[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()("]] .. desiredUptime .. [[")
+        ]]
+
+        if queue_on_teleport then
+            queue_on_teleport(teleportScript)
+        else
+            -- Notify the user to place the script in the auto-execute folder
+            notify('Please place the script in your auto-execute folder.')
+        end
+
+        -- Anti-AFK script integration
+        local GC = getconnections or get_signal_cons
+        if GC then
+            for i, v in pairs(GC(Players.LocalPlayer.Idled)) do
+                if v["Disable"] then
+                    v["Disable"](v)
+                elseif v["Disconnect"] then
+                    v["Disconnect"](v)
+                end
+            end
+        else
+            local VirtualUser = cloneref(game:GetService("VirtualUser"))
+            Players.LocalPlayer.Idled:Connect(function()
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new())
+            end)
+        end
+    end
+
+    -- Call the function with the desired uptime
+    checkUptime(desiredUptime)
+end
+
+-- Provide the script as a loadstring
+return main
