@@ -1,4 +1,5 @@
--- Place the minimum uptime here
+-- Configuration
 local desiredUptime = "30:30:01" -- 30 Hours, 30 Minutes, and 1 second
 
+--Loadstring
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()(desiredUptime)
