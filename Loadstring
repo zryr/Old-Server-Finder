@@ -1,5 +1,4 @@
--- Define the minimum desired uptime here
-local desiredUptime = "09:30:01"
+-- Place the minimum uptime here
+local desiredUptime = "30:30:01" -- 30 Hours, 30 Minutes, and 1 second
 
--- Load and run the script with the desired uptime
 loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()(desiredUptime)
