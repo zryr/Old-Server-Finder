@@ -53,18 +53,41 @@ mainSection:AddButton({
 
         local hours, minutes, seconds = desiredUptime:match("^(%d+):(%d+):(%d+)$")
 
-        if hours and minutes and seconds then
-            desiredUptime = string.format("%02d:%02d:%02d", tonumber(hours), tonumber(minutes), tonumber(seconds))
-            local scriptUrl = "https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Old-Server-Finder-Speed-Hub-X"
-            loadstring(game:HttpGet(scriptUrl))()(desiredUptime)
-        else
+        if not (hours and minutes and seconds) then
             Speed_Library:SetNotification({
                 Title = "Invalid Format",
-                Description = "!",
+                Description = "",
                 Content = "Please try entering time in HH:MM:SS format.",
                 Time = 0.5,
                 Delay = 5
             })
+            return
+        end
+        
+        desiredUptime = string.format("%02d:%02d:%02d", tonumber(hours), tonumber(minutes), tonumber(seconds))
+        
+        -- Check if queue_on_teleport is supported
+        if not syn or not syn.queue_on_teleport then
+            Speed_Library:SetNotification({
+                Title = "Executor doesn't support",
+                Description = "Queue_On_Teleport",
+                Content = "Place the script in your clipboard into your executor's auto execute folder.",
+                Time = 0.5,
+                Delay = 10  -- Notification duration increased to 10 seconds
+            })
+            
+            local scriptToClipboard = string.format([[
+-- Configuration (Minimum Uptime)
+local desiredUptime = "%s" -- %s Hours, %s Minutes, %s Seconds
+
+-- Loadstring
+loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Old-Server-Finder-Speed-Hub-X"))()(desiredUptime)
+]], desiredUptime, hours, minutes, seconds)
+            
+            setclipboard(scriptToClipboard)
+        else
+            local scriptUrl = "https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Old-Server-Finder-Speed-Hub-X"
+            loadstring(game:HttpGet(scriptUrl))()(desiredUptime)
         end
     end
 })
