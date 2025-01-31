@@ -15,11 +15,18 @@ local mainTab = window:CreateTab({
 local mainSection = mainTab:AddSection("Server Finder", true)
 
 mainSection:AddButton({
-    Title = "Unblacklist Visited Server",
+    Title = "Unblacklist Visited Servers",
     Content = "Click here before using the old server finder",
     Callback = function()
         if pcall(function() return readfile("visited_servers.txt") end) then
             delfile("visited_servers.txt")
+            Speed_Library:SetNotification({
+                Title = "Servers",
+                Description = "Unblacklisted Successfully",
+                Content = "You've successfully unblacklisted your previously visited servers.",
+                Time = 0.5,
+                Delay = 5
+            })
         end
     end
 })
@@ -29,7 +36,7 @@ mainSection:AddLine()
 local uptimeInput = mainSection:AddInput({
     Title = "Minimum Uptime",
     Content = "A white screen will flash once the old server is found, tap on it to remove it.",
-    Default = "30:10:01",
+    Default = "30 or 30:10:01",
     Callback = function(value)
     end
 })
@@ -40,14 +47,21 @@ mainSection:AddButton({
     Callback = function()
         local desiredUptime = uptimeInput.Value
 
-        if desiredUptime:match("^%d+:%d+:%d+$") then
+        if desiredUptime:match("^%d+$") then
+            desiredUptime = desiredUptime .. ":00:00"
+        end
+
+        local hours, minutes, seconds = desiredUptime:match("^(%d+):(%d+):(%d+)$")
+
+        if hours and minutes and seconds then
+            desiredUptime = string.format("%02d:%02d:%02d", tonumber(hours), tonumber(minutes), tonumber(seconds))
             local scriptUrl = "https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Old-Server-Finder-Speed-Hub-X"
             loadstring(game:HttpGet(scriptUrl))()(desiredUptime)
         else
             Speed_Library:SetNotification({
                 Title = "Invalid Format",
                 Description = "!",
-                Content = "Please enter time in HH:MM:SS format.",
+                Content = "Please try entering time in HH:MM:SS format.",
                 Time = 0.5,
                 Delay = 5
             })
