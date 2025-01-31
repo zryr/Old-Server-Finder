@@ -134,6 +134,17 @@ return function(desiredUptime)
                         until successJoin
 
                         if successJoin then
+                            -- Queue the server finder script on teleport
+                            local teleportScript = [[
+                                loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Old-Server-Finder-Speed-Hub-X"))()("]] .. desiredUptime .. [[")
+                            ]]
+
+                            if queue_on_teleport then
+                                queue_on_teleport(teleportScript)
+                            else
+                                print("queue_on_teleport function is not available.")
+                            end
+
                             return
                         end
                     end
