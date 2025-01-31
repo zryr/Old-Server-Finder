@@ -1,4 +1,12 @@
 local function main(desiredUptime)
+    -- Check for the existence of queue_on_teleport support
+    local hasQueueSupport = queue_on_teleport ~= nil
+
+    -- Notify the user about the requirement for auto-execute setup if needed
+    if not hasQueueSupport then
+        notify('Please place the script in your auto-execute folder.')
+    end
+
     -- Define the function to check uptime
     function checkUptime(desiredUptime)
         local function notify(message)
@@ -235,14 +243,13 @@ local function main(desiredUptime)
 
         -- Queue the script for execution after teleport
         local teleportScript = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()("]] .. desiredUptime .. [[")
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid-Beta"))()("]] .. desiredUptime .. [[")
         ]]
 
-        if queue_on_teleport then
+        if hasQueueSupport then
             queue_on_teleport(teleportScript)
         else
-            -- Notify the user to place the script in the auto-execute folder
-            notify('Please place the script in your auto-execute folder.')
+            -- The notification is already handled at the start if queue_on_teleport is not supported
         end
 
         -- Anti-AFK script integration
