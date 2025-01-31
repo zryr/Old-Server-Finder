@@ -127,44 +127,61 @@ local function main(desiredUptime)
             local cursor = ""
             local serversUrlPattern = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100&cursor=%s"
 
-            while true do
+            local function fetchServers()
                 local serversUrl = serversUrlPattern:format(cursor)
                 local success, result = pcall(function()
                     return HttpService:JSONDecode(game:HttpGet(serversUrl))
                 end)
 
                 if success and result.data then
-                    for _, server in ipairs(result.data) do
-                        if server.id ~= game.JobId and not server.private and not visitedServers[server.id] and server.playing < server.maxPlayers then
-                            local successJoin, errorMessage
-                            repeat
-                                successJoin, errorMessage = pcall(function()
-                                    TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
-                                end)
-                                if not successJoin then
-                                    if errorMessage:match("GameFull") or errorMessage:match("Unauthorized") then
-                                        wait(5)
-                                        break -- Exit the retry loop to find a different server
-                                    else
-                                        wait(5) -- Wait before retrying for other errors
-                                    end
-                                end
-                            until successJoin
+                    return result.data, result.nextPageCursor
+                else
+                    notify("Failed to retrieve server list. Retrying in 10 seconds...")
+                    wait(10)  -- Wait for 10 seconds before retrying to get the server list
+                    return nil, nil
+                end
+            end
 
-                            if successJoin then
+            local function tryJoinServer(server)
+                local successJoin, errorMessage
+
+                successJoin, errorMessage = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(gameId, server.id, player)
+                end)
+
+                if not successJoin then
+                    if errorMessage:match("GameFull") or errorMessage:match("Unauthorized") then
+                        visitedServers[server.id] = "Full or Unauthorized"
+                        saveVisitedServers()
+                        notify("Server is full or unauthorized, skipping.")
+                        return false
+                    else
+                        notify("Error joining server: " .. errorMessage)
+                        wait(5) -- Wait before retrying for network issues or other transient errors
+                    end
+                end
+
+                return successJoin
+            end
+
+            while true do
+                local servers, nextCursor = fetchServers()
+                if servers then
+                    for _, server in ipairs(servers) do
+                        if server.id ~= game.JobId and not server.private and not visitedServers[server.id] and server.playing < server.maxPlayers then
+                            if tryJoinServer(server) then
                                 return
                             end
                         end
                     end
 
-                    if result.nextPageCursor then
-                        cursor = result.nextPageCursor
-                    else
-                        cursor = ""
-                    end
+                    cursor = nextCursor or ""
                 end
 
-                wait(2)
+                if cursor == "" then
+                    notify("No suitable servers found, refreshing list in 10 seconds...")
+                    wait(10) -- Wait before starting a new server search cycle
+                end
             end
         end
 
@@ -218,7 +235,7 @@ local function main(desiredUptime)
 
         -- Queue the script for execution after teleport
         local teleportScript = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/main/Source-Khalid-Beta"))()("]] .. desiredUptime .. [[")
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/zryr/Fisch-Old-Server-Finder/refs/heads/main/Source-Khalid"))()("]] .. desiredUptime .. [[")
         ]]
 
         if queue_on_teleport then
