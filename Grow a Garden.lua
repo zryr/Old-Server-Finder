@@ -1,6 +1,6 @@
 --[[
-    Grow a Garden - Old Server Finder/Joiner
-    Version: 1.2.3
+    Grow a Garden - Old Server Finder/Joiner with Pastebin Backend & GUI
+    Version: 1.2.4 (Fix for '...' error in global scope)
 ]]
 
 -- ------------------------------------------------------------------------------------
@@ -10,20 +10,19 @@ local PASTEBIN_API_DEV_KEY = "U8CrZNTgDnfYoJ2mDC3Px1mVqhpMG5wz"
 local ACQUIRED_API_USER_KEY = "8bd62df35cbba6ade9f28b23e560baf1"
 local SCRIPT_RELOAD_URL = "https://raw.githubusercontent.com/zryr/Old-Server-Finder/refs/heads/main/Grow%20a%20Garden.lua"
 
-local DEFAULT_TARGET_MAX_VERSION = 1226 -- Default if no parameter is passed
+local DEFAULT_TARGET_MAX_VERSION = 1226
 
 local OLD_SERVERS_PASTE_FILENAME_PREFIX = "Old_Servers_Gag_"
 local UPTODATE_SERVERS_PASTE_FILENAME_PREFIX = "UpToDate_Servers_Gag_"
 local OLD_SERVERS_PASTE_KEY_FILE = "gag_old_servers_paste_key.txt"
 local UPTODATE_SERVERS_PASTE_KEY_FILE = "gag_uptodate_servers_paste_key.txt"
 
-local TARGET_PLACE_ID = 16109285695 -- Grow a Garden! Root Place ID
+local TARGET_PLACE_ID = 16109285695
 local PASTE_EXPIRY_TIME = "1D"
 local MAX_PASTE_SIZE_BYTES = 500 * 1024
 -- ------------------------------------------------------------------------------------
 
--- This will be set by the parameter passed to main() or use the default
-local TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION
+local TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION -- Will be updated by main() if param is passed
 
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -34,13 +33,6 @@ local Debris = game:GetService("Debris")
 local player = Players.LocalPlayer
 local mainGui = nil
 local statusLabel = nil
-
--- ... (quickNotify, createPillButton, createMainGui functions remain IDENTICAL to v1.2.2)
--- ... (getPasteKeyFromFile, savePasteKeyToFile, getRawPasteContent functions remain IDENTICAL)
--- ... (HttpPostAsync, createPastebinPaste, deletePastebinPaste functions remain IDENTICAL)
--- ... (updatePastebinList, ensurePastebinListExists, loadServerListFromPastebin functions remain IDENTICAL)
--- ... (The core runMainLogic function's internal logic referencing TARGET_MAX_VERSION will now use the globally scoped one)
--- ... (antiAfk function remains IDENTICAL)
 
 local function quickNotify(message, duration)
     duration = duration or 5
@@ -95,7 +87,7 @@ local function createMainGui()
     titleLabel.TextSize = 20
 
     statusLabel = Instance.new("TextLabel", frame)
-    statusLabel.Text = "Target Version: " .. TARGET_MAX_VERSION; statusLabel.Size = UDim2.new(1, -20, 0, 20)
+    statusLabel.Text = "Target Version <= " .. TARGET_MAX_VERSION; statusLabel.Size = UDim2.new(1, -20, 0, 20)
     statusLabel.Position = UDim2.new(0.5, 0, 0, 50); statusLabel.AnchorPoint = Vector2.new(0.5, 0)
     statusLabel.BackgroundTransparency = 1; statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
     statusLabel.Font = Enum.Font.SourceSansItalic; statusLabel.TextSize = 14; statusLabel.TextWrapped = true
@@ -348,7 +340,7 @@ local function loadServerListFromPastebin(pasteKey)
     return serversSet, serverDetails
 end
 
-function runMainLogic(mode, arg1, arg2, arg3, arg4)
+function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5) -- Added arg5 for targetMaxVersion in slave
     if not player then player = Players.LocalPlayer end
     if not player then quickNotify("LocalPlayer not found!", 5); return end
 
@@ -360,7 +352,7 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4)
         end
     end
     
-    print("Running Mode:", mode, arg1, arg2, arg3, arg4)
+    print("Running Mode:", mode, arg1, arg2, arg3, arg4, arg5)
 
     if mode == "initial_gui" then
         pcall(createMainGui)
@@ -401,12 +393,11 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4)
         
         if nextTargetServer then
             if statusLabel and statusLabel.Parent then statusLabel.Text = "Search: Teleporting to " .. nextTargetServer.id:sub(1,8) else quickNotify("Search: Teleporting to "..nextTargetServer.id:sub(1,8),2) end
-            -- Pass TARGET_MAX_VERSION to the slave script context
-            local payload = string.format("'%s', '%s', '%s', %d, '%s', %d", 
+            local payload = string.format("'%s', '%s', '%s', %d, '%s', %s", -- arg5 (TARGET_MAX_VERSION) is now a number
                                           "search_slave_check_version", tostring(nextTargetServer.id), 
-                                          cursor, nextProcessedIdxOnPage, searchSessionId, TARGET_MAX_VERSION)
+                                          cursor, nextProcessedIdxOnPage, searchSessionId, tostring(TARGET_MAX_VERSION))
             if queue_on_teleport and SCRIPT_RELOAD_URL ~= "" and SCRIPT_RELOAD_URL ~= "YOUR_RAW_URL_TO_THIS_SCRIPT_HERE" then
-                local ts = string.format([[local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local mainEntryPoint=loadstring(c)();if type(mainEntryPoint)=='function' then mainEntryPoint(%s)else print("TS Error: mf not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, payload)
+                local ts = string.format([[local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local entryPoint=loadstring(c)();if type(entryPoint)=='function' then entryPoint(%s)else print("TS Error: entryPoint not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, payload)
                 queue_on_teleport(ts)
             elseif queue_on_teleport then
                  print("WARNING: SCRIPT_RELOAD_URL not set correctly. queue_on_teleport may not function as intended.")
@@ -422,7 +413,6 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4)
         end
 
     elseif mode == "search_slave_check_version" then
-        -- arg1: expectedJobId, arg2: original_cursor, arg3: original_processed_idx, arg4: search_session_id, arg5: targetMaxVersionFromMaster
         local expectedJobId = arg1; local originalCursor = arg2
         local originalProcessedIdxOnPage = arg3; local searchSessionId = arg4
         local currentTargetMaxVersion = tonumber(arg5) or TARGET_MAX_VERSION -- Use passed or global default
@@ -438,11 +428,10 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4)
         else
             updatePastebinList("uptodate", newDataEntry)
         end
-        -- Pass TARGET_MAX_VERSION back to master for consistency in the next master run
         local payload = string.format("'%s', '%s', %d, '%s'", 
                                       "search_master", originalCursor, originalProcessedIdxOnPage, searchSessionId)
         if queue_on_teleport and SCRIPT_RELOAD_URL ~= "" and SCRIPT_RELOAD_URL ~= "YOUR_RAW_URL_TO_THIS_SCRIPT_HERE" then
-            local ts = string.format([[local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local mainEntryPoint=loadstring(c)();if type(mainEntryPoint)=='function' then mainEntryPoint(%s)else print("TS Error: mf not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, payload)
+            local ts = string.format([[local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local entryPoint=loadstring(c)();if type(entryPoint)=='function' then entryPoint(%s)else print("TS Error: entryPoint not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, payload)
             queue_on_teleport(ts)
         elseif queue_on_teleport then
              print("WARNING: SCRIPT_RELOAD_URL not set for slave->master. queue_on_teleport may not function as intended.")
@@ -462,16 +451,16 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4)
         table.sort(serverEntries, function(a,b) local tsA=a:match("Timestamp:%s*(.+)$")or"0";local tsB=b:match("Timestamp:%s*(.+)$")or"0";return tsA>tsB end)
         for i = 1, #serverEntries do
             local line = serverEntries[i]; local jobId = line:match("^([^|]+)%s*|")
-            local versionInList = tonumber(line:match("Version:%s*([^|]+)")) -- Check version from list
+            local versionInList = tonumber(line:match("Version:%s*([^|]+)")) 
             if jobId then
-                if versionInList and versionInList <= TARGET_MAX_VERSION then -- Only try to join if it was logged as old based on current TARGET_MAX_VERSION
+                if versionInList and versionInList <= TARGET_MAX_VERSION then 
                     jobId = jobId:gsub("%s+", "")
                     quickNotify("Join: Attempting " .. jobId:sub(1,8) .. " (V" .. versionInList .. ")", 3)
                     local success, err = pcall(TeleportService.TeleportToPlaceInstance, TeleportService, TARGET_PLACE_ID, jobId, player)
                     if success then
-                        local checkPayload = string.format("'%s', '%s', %d", "join_slave_confirm", jobId, TARGET_MAX_VERSION)
+                        local checkPayload = string.format("'%s', '%s', %s", "join_slave_confirm", jobId, tostring(TARGET_MAX_VERSION))
                         if queue_on_teleport and SCRIPT_RELOAD_URL ~= "" and SCRIPT_RELOAD_URL ~= "YOUR_RAW_URL_TO_THIS_SCRIPT_HERE" then
-                             local ts = string.format([[wait(7);local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local mainEntryPoint=loadstring(c)();if type(mainEntryPoint)=='function' then mainEntryPoint(%s)else print("TS Error: mf not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, checkPayload)
+                             local ts = string.format([[wait(7);local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local entryPoint=loadstring(c)();if type(entryPoint)=='function' then entryPoint(%s)else print("TS Error: entryPoint not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, checkPayload)
                              queue_on_teleport(ts)
                         elseif queue_on_teleport then
                             print("WARNING: SCRIPT_RELOAD_URL not set for join_slave. queue_on_teleport may not function as intended.")
@@ -486,7 +475,6 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4)
         quickNotify("Tried all suitable old servers. None joinable or list exhausted.", 7); pcall(createMainGui)
     
     elseif mode == "join_slave_confirm" then
-        -- arg1: expectedJobId, arg2: targetMaxVersionFromMaster
         local expectedJobId = arg1
         local currentTargetMaxVersion = tonumber(arg2) or TARGET_MAX_VERSION
         local currentJobId = game.JobId; local currentVersion = tonumber(game.PlaceVersion)
@@ -504,23 +492,22 @@ local function antiAfk()
     end
 end
 
--- This is the main function that loadstring will call
-local function main(targetMaxVersionParam)
-    if targetMaxVersionParam then
+local function main(targetMaxVersionParam) -- This is called by the initial loadstring
+    if targetMaxVersionParam ~= nil then -- Check if nil explicitly, as 0 is a valid version
         local numParam = tonumber(targetMaxVersionParam)
         if numParam then
             TARGET_MAX_VERSION = numParam
             print("Target Max Version set from parameter: " .. TARGET_MAX_VERSION)
         else
-            print("Warning: Invalid targetMaxVersionParam provided ("..tostring(targetMaxVersionParam).."), using default: " .. DEFAULT_TARGET_MAX_VERSION)
+            print("Warning: Invalid targetMaxVersionParam provided ('"..tostring(targetMaxVersionParam).."'), using default: " .. DEFAULT_TARGET_MAX_VERSION)
             TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION
         end
     else
-        print("No targetMaxVersionParam provided, using default: " .. DEFAULT_TARGET_MAX_VERSION)
-        TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION
+        print("No targetMaxVersionParam for this call, using current/default: " .. TARGET_MAX_VERSION)
     end
+    quickNotify("Target Version <= " .. TARGET_MAX_VERSION, 4)
 
-    -- Initial Configuration Check
+
     local configError = false
     local configErrorMsg = "SCRIPT CONFIGURATION ISSUE: "
     if PASTEBIN_API_DEV_KEY == "YOUR_PASTEBIN_DEV_KEY_HERE" then configError = true; configErrorMsg = configErrorMsg .. "Set PASTEBIN_API_DEV_KEY. " end
@@ -532,37 +519,40 @@ local function main(targetMaxVersionParam)
     end
 
     if configError then
-        quickNotify(configErrorMsg, 30)
-        if mainGui and mainGui.Parent then mainGui:Destroy() end
-        local parentForError = player and player.PlayerGui or CoreGui
-        if parentForError then
-            mainGui = Instance.new("ScreenGui", parentForError)
-            local errLabel = Instance.new("TextLabel", mainGui)
-            errLabel.Size = UDim2.new(1,0,1,0); errLabel.TextWrapped = true; errLabel.TextScaled = true
-            errLabel.TextColor3 = Color3.new(1,0.2,0.2); errLabel.BackgroundColor3 = Color3.new(0.1,0.1,0.1)
-            errLabel.Text = configErrorMsg .. "\nPlease edit the script file."
-        else print(configErrorMsg .. "\nPlease edit the script file.") end
-        return function() end -- Return a dummy function if config error
+        quickNotify(configErrorMsg .. "\nPlease edit the script file.", 30)
+        -- GUI error display can be added here if desired
+        return function() print("Script aborted due to configuration error.") end 
     end
 
-    -- Main Execution Start
     if not player then
         local playerAddedConn
         playerAddedConn = Players.PlayerAdded:Connect(function(p)
-            if p == Players.LocalPlayer then player = p; playerAddedConn:Disconnect(); antiAfk(); runMainLogic("initial_gui") end
+            if p == Players.LocalPlayer then 
+                player = p; 
+                if playerAddedConn then playerAddedConn:Disconnect(); playerAddedConn = nil; end
+                antiAfk(); 
+                runMainLogic("initial_gui") 
+            end
         end)
     else
         antiAfk()
-        if not (debug.getinfo(1,"S").what == "main" and select("#", ...) > 0 and type(select(1,...)) == "string" ) then
+        -- If this 'main' function is called (e.g., by loadstring(scriptContent)()),
+        -- and it's not the very first time the script runs in the session (e.g. after a teleport and script reload via URL),
+        -- we generally don't want to just show the initial_gui if the script was meant to resume a specific mode.
+        -- The queue_on_teleport logic is designed to call the *returned runMainLogic* with specific modes.
+        -- So, this 'main' function, when called by loadstring(scriptContent)(), should primarily handle the parameter
+        -- and then, if it's an initial execution context, show the GUI.
+        -- A simple way: if the GUI isn't already there, it's probably an initial load.
+        if not (mainGui and mainGui.Parent) then
              runMainLogic("initial_gui")
         end
     end
     
-    return runMainLogic -- Return the function that handles different modes for queue_on_teleport
+    return runMainLogic 
 end
 
 if not table.keys then 
     table.keys = function(t) local ks={}; for k in pairs(t) do ks[#ks+1]=k end; return ks end
 end
 
-return main -- This makes `loadstring(script_content)()(param)` work
+return main
