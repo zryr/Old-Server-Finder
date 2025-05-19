@@ -1,6 +1,6 @@
 --[[
     Grow a Garden - Old Server Finder/Joiner with Pastebin Backend & GUI
-    Version: 1.2.7 (Enhanced Debugging for GUI Creation)
+    Version: 1.2.2_mod (Based on 1.2.2, adding GUI TextBox, removing loadstring param)
 ]]
 
 -- ------------------------------------------------------------------------------------
@@ -10,7 +10,7 @@ local PASTEBIN_API_DEV_KEY = "U8CrZNTgDnfYoJ2mDC3Px1mVqhpMG5wz"
 local ACQUIRED_API_USER_KEY = "8bd62df35cbba6ade9f28b23e560baf1"
 local SCRIPT_RELOAD_URL = "https://raw.githubusercontent.com/zryr/Old-Server-Finder/refs/heads/main/Grow%20a%20Garden.lua"
 
-local DEFAULT_TARGET_MAX_VERSION = 1226
+local DEFAULT_TARGET_MAX_VERSION = 1226 -- This was TARGET_MAX_VERSION in 1.2.2
 
 local OLD_SERVERS_PASTE_FILENAME_PREFIX = "Old_Servers_Gag_"
 local UPTODATE_SERVERS_PASTE_FILENAME_PREFIX = "UpToDate_Servers_Gag_"
@@ -22,7 +22,7 @@ local PASTE_EXPIRY_TIME = "1D"
 local MAX_PASTE_SIZE_BYTES = 500 * 1024
 -- ------------------------------------------------------------------------------------
 
-local CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION 
+local CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION -- This will be updated by the GUI
 
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -33,7 +33,7 @@ local Debris = game:GetService("Debris")
 local player = Players.LocalPlayer
 local mainGui = nil
 local statusLabel = nil
-local versionInputBox = nil 
+local versionInputBox = nil -- For the TextBox
 
 local function getTableKeys(t)
     local keys = {}
@@ -44,17 +44,12 @@ local function getTableKeys(t)
 end
 
 local function quickNotify(message, duration)
-    duration = duration or 5; 
-    print("QUICKNOTIFY (debug): " .. message) -- Print all quick notifies for debugging
-    if not CoreGui then print("DEBUG quickNotify: CoreGui is nil!"); return end
-
+    duration = duration or 5; if not CoreGui then return end
     local existingNotif = CoreGui:FindFirstChild("QuickNotificationScript")
     if existingNotif then existingNotif:Destroy() end
-
-    local notifGui = Instance.new("ScreenGui") -- Create first
+    local notifGui = Instance.new("ScreenGui", CoreGui)
     notifGui.DisplayOrder = 999999; notifGui.Name = "QuickNotificationScript"
-    
-    local frame = Instance.new("Frame", notifGui) -- Parent frame to GUI first
+    local frame = Instance.new("Frame", notifGui)
     frame.Size = UDim2.new(0.35, 0, 0.1, 0); frame.Position = UDim2.new(0.5, 0, 0.05, 0)
     frame.AnchorPoint = Vector2.new(0.5, 0); frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     frame.BackgroundTransparency = 0.2; frame.BorderSizePixel = 0
@@ -64,8 +59,6 @@ local function quickNotify(message, duration)
     label.AnchorPoint = Vector2.new(0.5, 0.5); label.BackgroundTransparency = 1
     label.TextColor3 = Color3.new(1, 1, 1); label.TextWrapped = true; label.TextScaled = false
     label.Font = Enum.Font.SourceSansSemibold; label.TextSize = 16; label.Text = message
-    
-    notifGui.Parent = CoreGui -- Parent ScreenGui last
     Debris:AddItem(notifGui, duration)
 end
 
@@ -79,56 +72,18 @@ local function createPillButton(parent, text, position, size)
     return button
 end
 
+-- MODIFIED createMainGui to include TextBox
 local function createMainGui()
-    print("DEBUG: createMainGui function started.")
-    if not player then 
-        print("DEBUG: createMainGui: player is nil, attempting to get LocalPlayer.")
-        player = Players.LocalPlayer 
-    end
-    if not player then
-        print("DEBUG: createMainGui: LocalPlayer is still nil. Cannot create GUI.")
-        return 
-    end
-    print("DEBUG: createMainGui: Player found: " .. player.Name)
+    if not player then player = Players.LocalPlayer end
+    local parentGui = player and player.PlayerGui or CoreGui
+    if not parentGui then print("Error: Cannot find suitable parent for Main GUI."); return end
 
-    local parentGui = player.PlayerGui
-    if not parentGui then
-        print("DEBUG: createMainGui: player.PlayerGui is nil. Attempting to use CoreGui.")
-        parentGui = CoreGui
-    end
-
-    if not parentGui then 
-        print("DEBUG: createMainGui: Error! Cannot find a suitable parent GUI (PlayerGui or CoreGui is nil).")
-        quickNotify("Error: No parent for GUI!", 10) 
-        return 
-    end
-    print("DEBUG: createMainGui: Attempting to parent GUI to: " .. parentGui:GetFullName())
-
-    if mainGui and mainGui.Parent then 
-        print("DEBUG: createMainGui: Destroying existing mainGui.")
-        mainGui:Destroy() 
-    end
-    
-    mainGui = Instance.new("ScreenGui") 
-    mainGui.Name = "OldServerFinderGUI"
-    mainGui.DisplayOrder = 1000
-    mainGui.ResetOnSpawn = false
-    print("DEBUG: createMainGui: ScreenGui instance created.")
-
-    local successParent, errParent = pcall(function() mainGui.Parent = parentGui end)
-    if not successParent then
-        print("DEBUG: createMainGui: FAILED to parent ScreenGui to " .. parentGui:GetFullName())
-        print("DEBUG: Parenting error: " .. tostring(errParent))
-        warn("Parenting error in createMainGui:", errParent)
-        if mainGui then mainGui:Destroy() end 
-        mainGui = nil
-        return
-    end
-    print("DEBUG: createMainGui: ScreenGui parented successfully to " .. mainGui.Parent:GetFullName())
-
+    if mainGui and mainGui.Parent then mainGui:Destroy() end
+    mainGui = Instance.new("ScreenGui", parentGui); mainGui.Name = "OldServerFinderGUI"
+    mainGui.DisplayOrder = 1000; mainGui.ResetOnSpawn = false
 
     local frame = Instance.new("Frame", mainGui)
-    frame.Size = UDim2.new(0, 320, 0, 270); 
+    frame.Size = UDim2.new(0, 320, 0, 270); -- Increased height
     frame.Position = UDim2.new(0.5, 0, 0.5, 0); frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45); frame.BorderSizePixel = 1
     frame.BorderColor3 = Color3.fromRGB(20,20,20); Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
@@ -138,7 +93,7 @@ local function createMainGui()
     titleLabel.Position = UDim2.new(0, 0, 0, 10); titleLabel.BackgroundTransparency = 1
     titleLabel.TextColor3 = Color3.fromRGB(230, 230, 230); titleLabel.Font = Enum.Font.SourceSansSemibold
     titleLabel.TextSize = 20
-
+    
     local versionLabel = Instance.new("TextLabel", frame)
     versionLabel.Text = "Target Max Version:"; versionLabel.Size = UDim2.new(0.9, 0, 0, 20)
     versionLabel.Position = UDim2.new(0.5, 0, 0, 45); versionLabel.AnchorPoint = Vector2.new(0.5,0)
@@ -154,8 +109,7 @@ local function createMainGui()
     versionInputBox.Font = Enum.Font.SourceSans; versionInputBox.TextSize = 16
     versionInputBox.ClearTextOnFocus = false
     Instance.new("UICorner", versionInputBox).CornerRadius = UDim.new(0, 8)
-    local padding = Instance.new("UIPadding", versionInputBox)
-    padding.PaddingLeft = UDim.new(0,10); padding.PaddingRight = UDim.new(0,10)
+    local padding = Instance.new("UIPadding", versionInputBox); padding.PaddingLeft = UDim.new(0,10); padding.PaddingRight = UDim.new(0,10)
 
     statusLabel = Instance.new("TextLabel", frame)
     statusLabel.Text = "Idle. Set target version and select action."; statusLabel.Size = UDim2.new(1, -20, 0, 20)
@@ -170,7 +124,7 @@ local function createMainGui()
     joinButton.AnchorPoint = Vector2.new(0.5, 0.5)
 
     local function updateTargetVersionFromInput()
-        if not versionInputBox then return end 
+        if not versionInputBox then return end
         local num = tonumber(versionInputBox.Text)
         if num and num > 0 then
             CURRENT_TARGET_MAX_VERSION = math.floor(num) 
@@ -182,7 +136,7 @@ local function createMainGui()
         end
     end
 
-    if versionInputBox then 
+    if versionInputBox then
         versionInputBox.FocusLost:Connect(function(enterPressed)
             if enterPressed then updateTargetVersionFromInput() end
         end)
@@ -201,13 +155,12 @@ local function createMainGui()
         quickNotify("Searching Pastebin for servers <= V" .. CURRENT_TARGET_MAX_VERSION, 3)
         coroutine.wrap(runMainLogic)("join_master")
     end)
-    print("DEBUG: createMainGui: All GUI elements should be created and connections set.")
 end
 
--- Functions: getPasteKeyFromFile, savePasteKeyToFile, getRawPasteContent, HttpPostAsync
--- createPastebinPaste, deletePastebinPaste, updatePastebinList, ensurePastebinListExists, loadServerListFromPastebin
--- (These are assumed to be the same as version 1.2.6 and are omitted here for brevity, but they are part of the full script)
--- PASTE THE CONTENT OF THESE FUNCTIONS FROM THE PREVIOUS VERSION HERE
+-- Pastebin and other helper functions (getPasteKeyFromFile, savePasteKeyToFile, etc.)
+-- These are assumed to be the same as in the script you provided (v1.2.2 base)
+-- and are omitted here for brevity but should be included in your final script.
+-- I will include them below for completeness of this version.
 
 local function getPasteKeyFromFile(filename)
     if isfile and isfile(filename) then
@@ -440,9 +393,10 @@ local function loadServerListFromPastebin(pasteKey)
     return serversSet, serverDetails
 end
 
-function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5) 
+-- Main function for different operational modes
+function runMainLogic(mode, arg1, arg2, arg3, arg4) -- arg5 (targetMaxVersion) removed from slave direct pass, uses CURRENT_TARGET_MAX_VERSION
     if not player then player = Players.LocalPlayer end
-    if not player then print("DEBUG runMainLogic: LocalPlayer not found!"); quickNotify("LocalPlayer not found!", 5); return end
+    if not player then quickNotify("LocalPlayer not found!", 5); return end
 
     if mode ~= "initial_gui" and mode ~= "join_master_fetch_list" then
         if game.PlaceId ~= TARGET_PLACE_ID then
@@ -452,24 +406,11 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
         end
     end
     
-    print("DEBUG runMainLogic: Running Mode:", mode, arg1, arg2, arg3, arg4, arg5)
-    local effectiveTargetMaxVersion = CURRENT_TARGET_MAX_VERSION 
+    print("Running Mode:", mode, arg1, arg2, arg3, arg4)
+    -- CURRENT_TARGET_MAX_VERSION is now the global variable read from GUI
 
     if mode == "initial_gui" then
-        print("DEBUG runMainLogic: mode is initial_gui, calling createMainGui via pcall...")
-        local success, err = pcall(createMainGui)
-        if not success then
-            print("DEBUG: Error occurred inside pcall(createMainGui):")
-            print("DEBUG: Error message:", tostring(err))
-            warn("Error in createMainGui via pcall:", err)
-        else
-            print("DEBUG: pcall(createMainGui) was successful.")
-            if mainGui and mainGui.Parent then
-                 print("DEBUG: mainGui was created and parented to: " .. mainGui.Parent:GetFullName())
-            else
-                 print("DEBUG: mainGui was NOT found or not parented after createMainGui call.")
-            end
-        end
+        pcall(createMainGui)
 
     elseif mode == "search_master" then
         local oldListOK = ensurePastebinListExists("old")
@@ -510,9 +451,10 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
         
         if nextTargetServer then
             if statusLabel and statusLabel.Parent then statusLabel.Text = "Search: Teleporting to " .. nextTargetServer.id:sub(1,8) else quickNotify("Search: Teleporting to "..nextTargetServer.id:sub(1,8),2) end
+            -- Pass CURRENT_TARGET_MAX_VERSION as arg5 for the slave
             local payload = string.format("'%s', '%s', '%s', %d, '%s', %s", 
                                           "search_slave_check_version", tostring(nextTargetServer.id), 
-                                          cursor, nextProcessedIdxOnPage, searchSessionId, tostring(effectiveTargetMaxVersion))
+                                          cursor, nextProcessedIdxOnPage, searchSessionId, tostring(CURRENT_TARGET_MAX_VERSION))
             if queue_on_teleport and SCRIPT_RELOAD_URL ~= "" and not SCRIPT_RELOAD_URL:find("YOUR_RAW_URL") then
                 local ts = string.format([[local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local entryPoint=loadstring(c)();if type(entryPoint)=='function' then entryPoint(%s)else print("TS Error: entryPoint not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, payload)
                 queue_on_teleport(ts)
@@ -532,7 +474,7 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
     elseif mode == "search_slave_check_version" then
         local expectedJobId = arg1; local originalCursor = arg2
         local originalProcessedIdxOnPage = arg3; local searchSessionId = arg4
-        effectiveTargetMaxVersion = tonumber(arg5) or CURRENT_TARGET_MAX_VERSION 
+        local slaveTargetMaxVersion = tonumber(arg5) or CURRENT_TARGET_MAX_VERSION -- Use passed version from master
 
         local currentJobId = game.JobId; local currentVersion = tonumber(game.PlaceVersion)
         local timestamp = os.date("!%Y-%m-%d %H:%M:%S [UTC]")
@@ -540,11 +482,12 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
         if currentJobId ~= expectedJobId then warn("Search Slave: JobID mismatch! Expected "..expectedJobId..", got "..currentJobId) end
         local newDataEntry = { string.format("%s | Version: %s | Timestamp: %s", currentJobId, tostring(currentVersion or "N/A"), timestamp) }
         
-        if currentVersion and currentVersion <= effectiveTargetMaxVersion then
+        if currentVersion and currentVersion <= slaveTargetMaxVersion then
             updatePastebinList("old", newDataEntry) 
         else
             updatePastebinList("uptodate", newDataEntry)
         end
+        -- When returning to master, master will use its own CURRENT_TARGET_MAX_VERSION for the next slave call
         local payload = string.format("'%s', '%s', %d, '%s'", 
                                       "search_master", originalCursor, originalProcessedIdxOnPage, searchSessionId)
         if queue_on_teleport and SCRIPT_RELOAD_URL ~= "" and not SCRIPT_RELOAD_URL:find("YOUR_RAW_URL") then
@@ -559,7 +502,7 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
         if not ensurePastebinListExists("old") then
             quickNotify("Failed to ensure 'Old Servers' list. Cannot join.", 7); pcall(createMainGui); return
         end
-        quickNotify("Join: Fetching old servers (<= V" .. effectiveTargetMaxVersion .. ")..", 3)
+        quickNotify("Join: Fetching old servers (<= V" .. CURRENT_TARGET_MAX_VERSION .. ")..", 3)
         local oldServersKey = getPasteKeyFromFile(OLD_SERVERS_PASTE_KEY_FILE)
         local _, serverDetailsMap = loadServerListFromPastebin(oldServersKey)
         local serverEntries = {}
@@ -570,12 +513,12 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
             local line = serverEntries[i]; local jobId = line:match("^([^|]+)%s*|")
             local versionInList = tonumber(line:match("Version:%s*([^|]+)")) 
             if jobId then
-                if versionInList and versionInList <= effectiveTargetMaxVersion then 
+                if versionInList and versionInList <= CURRENT_TARGET_MAX_VERSION then 
                     jobId = jobId:gsub("%s+", "")
                     quickNotify("Join: Attempting " .. jobId:sub(1,8) .. " (V" .. versionInList .. ")", 3)
                     local success, err = pcall(TeleportService.TeleportToPlaceInstance, TeleportService, TARGET_PLACE_ID, jobId, player)
                     if success then
-                        local checkPayload = string.format("'%s', '%s', %s", "join_slave_confirm", jobId, tostring(effectiveTargetMaxVersion))
+                        local checkPayload = string.format("'%s', '%s', %s", "join_slave_confirm", jobId, tostring(CURRENT_TARGET_MAX_VERSION))
                         if queue_on_teleport and SCRIPT_RELOAD_URL ~= "" and not SCRIPT_RELOAD_URL:find("YOUR_RAW_URL") then
                              local ts = string.format([[wait(7);local u="%s";local s,c=pcall(game.HttpGet,game,u,true);if s and c then local entryPoint=loadstring(c)();if type(entryPoint)=='function' then entryPoint(%s)else print("TS Error: entryPoint not func")end else print("TS Error: HttpGet fail or script load error: "..tostring(c))end]], SCRIPT_RELOAD_URL, checkPayload)
                              queue_on_teleport(ts)
@@ -585,7 +528,7 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
                         return
                     else quickNotify("Join Fail " .. jobId:sub(1,8) .. ": " .. tostring(err):sub(1,30), 4) end
                 else
-                    print("Skipping server from 'Old List' as its listed version (" .. tostring(versionInList) .. ") > target (" .. effectiveTargetMaxVersion .. "): " .. jobId)
+                    print("Skipping server from 'Old List' as its listed version (" .. tostring(versionInList) .. ") > target (" .. CURRENT_TARGET_MAX_VERSION .. "): " .. jobId)
                 end
             end
         end
@@ -593,11 +536,11 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
     
     elseif mode == "join_slave_confirm" then
         local expectedJobId = arg1
-        effectiveTargetMaxVersion = tonumber(arg2) or CURRENT_TARGET_MAX_VERSION 
+        local slaveConfirmTargetMaxVersion = tonumber(arg2) or CURRENT_TARGET_MAX_VERSION 
         local currentJobId = game.JobId; local currentVersion = tonumber(game.PlaceVersion)
         if currentJobId == expectedJobId then
-            if currentVersion and currentVersion <= effectiveTargetMaxVersion then quickNotify("Joined OLD server: " .. currentJobId:sub(1,8) .. " V" .. currentVersion, 10)
-            else quickNotify("Joined server " .. currentJobId:sub(1,8) .. " (V" .. tostring(currentVersion) .. ", not old by target V" .. effectiveTargetMaxVersion .. ").", 10) end
+            if currentVersion and currentVersion <= slaveConfirmTargetMaxVersion then quickNotify("Joined OLD server: " .. currentJobId:sub(1,8) .. " V" .. currentVersion, 10)
+            else quickNotify("Joined server " .. currentJobId:sub(1,8) .. " (V" .. tostring(currentVersion) .. ", not old by target V" .. slaveConfirmTargetMaxVersion .. ").", 10) end
         else quickNotify("Joined different server. Expected: "..expectedJobId:sub(1,8)..", Is: "..currentJobId:sub(1,8), 10) end
         wait(10); pcall(createMainGui)
     end
@@ -609,10 +552,11 @@ local function antiAfk()
     end
 end
 
-local function main() 
+-- This function is what loadstring(script_content)() will execute.
+local function mainEntryPoint() 
     CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION 
-    print("DEBUG main(): Initializing CURRENT_TARGET_MAX_VERSION to default: " .. CURRENT_TARGET_MAX_VERSION)
-    quickNotify("Target Version initially <= " .. CURRENT_TARGET_MAX_VERSION, 4)
+    print("DEBUG mainEntryPoint(): Initializing CURRENT_TARGET_MAX_VERSION to default: " .. CURRENT_TARGET_MAX_VERSION)
+    -- No quickNotify here as GUI isn't up yet for this initial call.
 
     local configError = false
     local configErrorMsg = "SCRIPT CONFIGURATION ISSUE: "
@@ -625,7 +569,7 @@ local function main()
     end
 
     if configError then
-        quickNotify(configErrorMsg .. "\nPlease edit the script file.", 30)
+        quickNotify(configErrorMsg .. "\nPlease edit the script file.", 30) -- This quickNotify might show if CoreGui is ready
         return function() print("Script aborted due to configuration error.") end 
     end
 
@@ -636,21 +580,21 @@ local function main()
                 player = p; 
                 if playerAddedConn then playerAddedConn:Disconnect(); playerAddedConn = nil; end
                 antiAfk(); 
-                print("DEBUG main(): Player just added, calling runMainLogic('initial_gui')")
+                print("DEBUG mainEntryPoint(): Player just added, calling runMainLogic('initial_gui')")
                 runMainLogic("initial_gui") 
             end
         end)
     else
         antiAfk()
-        if not (mainGui and mainGui.Parent) then
-             print("DEBUG main(): Player exists, GUI not up, calling runMainLogic('initial_gui')")
+        if not (mainGui and mainGui.Parent) then -- Only show GUI if it's not already up
+             print("DEBUG mainEntryPoint(): Player exists, GUI not up, calling runMainLogic('initial_gui')")
              runMainLogic("initial_gui")
         else
-             print("DEBUG main(): Player exists, GUI already up. Doing nothing further in main().")
+             print("DEBUG mainEntryPoint(): Player exists, GUI already up. Doing nothing further in mainEntryPoint() that would recreate GUI.")
         end
     end
     
-    return runMainLogic 
+    return runMainLogic -- The queue_on_teleport system expects this to be returned by loadstring(c)()
 end
 
-return main
+return mainEntryPoint
