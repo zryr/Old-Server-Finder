@@ -1,6 +1,6 @@
 --[[
     Grow a Garden - Old Server Finder/Joiner with Pastebin Backend & GUI
-    Version: 1.2.6 (GUI TextBox for Target Version, no loadstring param)
+    Version: 1.2.7 (Enhanced Debugging for GUI Creation)
 ]]
 
 -- ------------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ local PASTE_EXPIRY_TIME = "1D"
 local MAX_PASTE_SIZE_BYTES = 500 * 1024
 -- ------------------------------------------------------------------------------------
 
-local CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION -- Used by operations, updated by GUI
+local CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION 
 
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
@@ -44,12 +44,17 @@ local function getTableKeys(t)
 end
 
 local function quickNotify(message, duration)
-    duration = duration or 5; if not CoreGui then return end
+    duration = duration or 5; 
+    print("QUICKNOTIFY (debug): " .. message) -- Print all quick notifies for debugging
+    if not CoreGui then print("DEBUG quickNotify: CoreGui is nil!"); return end
+
     local existingNotif = CoreGui:FindFirstChild("QuickNotificationScript")
     if existingNotif then existingNotif:Destroy() end
-    local notifGui = Instance.new("ScreenGui", CoreGui)
+
+    local notifGui = Instance.new("ScreenGui") -- Create first
     notifGui.DisplayOrder = 999999; notifGui.Name = "QuickNotificationScript"
-    local frame = Instance.new("Frame", notifGui)
+    
+    local frame = Instance.new("Frame", notifGui) -- Parent frame to GUI first
     frame.Size = UDim2.new(0.35, 0, 0.1, 0); frame.Position = UDim2.new(0.5, 0, 0.05, 0)
     frame.AnchorPoint = Vector2.new(0.5, 0); frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     frame.BackgroundTransparency = 0.2; frame.BorderSizePixel = 0
@@ -59,6 +64,8 @@ local function quickNotify(message, duration)
     label.AnchorPoint = Vector2.new(0.5, 0.5); label.BackgroundTransparency = 1
     label.TextColor3 = Color3.new(1, 1, 1); label.TextWrapped = true; label.TextScaled = false
     label.Font = Enum.Font.SourceSansSemibold; label.TextSize = 16; label.Text = message
+    
+    notifGui.Parent = CoreGui -- Parent ScreenGui last
     Debris:AddItem(notifGui, duration)
 end
 
@@ -73,13 +80,52 @@ local function createPillButton(parent, text, position, size)
 end
 
 local function createMainGui()
-    if not player then player = Players.LocalPlayer end
-    local parentGui = player and player.PlayerGui or CoreGui
-    if not parentGui then print("Error: Cannot find suitable parent for Main GUI."); return end
+    print("DEBUG: createMainGui function started.")
+    if not player then 
+        print("DEBUG: createMainGui: player is nil, attempting to get LocalPlayer.")
+        player = Players.LocalPlayer 
+    end
+    if not player then
+        print("DEBUG: createMainGui: LocalPlayer is still nil. Cannot create GUI.")
+        return 
+    end
+    print("DEBUG: createMainGui: Player found: " .. player.Name)
 
-    if mainGui and mainGui.Parent then mainGui:Destroy() end
-    mainGui = Instance.new("ScreenGui", parentGui); mainGui.Name = "OldServerFinderGUI"
-    mainGui.DisplayOrder = 1000; mainGui.ResetOnSpawn = false
+    local parentGui = player.PlayerGui
+    if not parentGui then
+        print("DEBUG: createMainGui: player.PlayerGui is nil. Attempting to use CoreGui.")
+        parentGui = CoreGui
+    end
+
+    if not parentGui then 
+        print("DEBUG: createMainGui: Error! Cannot find a suitable parent GUI (PlayerGui or CoreGui is nil).")
+        quickNotify("Error: No parent for GUI!", 10) 
+        return 
+    end
+    print("DEBUG: createMainGui: Attempting to parent GUI to: " .. parentGui:GetFullName())
+
+    if mainGui and mainGui.Parent then 
+        print("DEBUG: createMainGui: Destroying existing mainGui.")
+        mainGui:Destroy() 
+    end
+    
+    mainGui = Instance.new("ScreenGui") 
+    mainGui.Name = "OldServerFinderGUI"
+    mainGui.DisplayOrder = 1000
+    mainGui.ResetOnSpawn = false
+    print("DEBUG: createMainGui: ScreenGui instance created.")
+
+    local successParent, errParent = pcall(function() mainGui.Parent = parentGui end)
+    if not successParent then
+        print("DEBUG: createMainGui: FAILED to parent ScreenGui to " .. parentGui:GetFullName())
+        print("DEBUG: Parenting error: " .. tostring(errParent))
+        warn("Parenting error in createMainGui:", errParent)
+        if mainGui then mainGui:Destroy() end 
+        mainGui = nil
+        return
+    end
+    print("DEBUG: createMainGui: ScreenGui parented successfully to " .. mainGui.Parent:GetFullName())
+
 
     local frame = Instance.new("Frame", mainGui)
     frame.Size = UDim2.new(0, 320, 0, 270); 
@@ -124,7 +170,7 @@ local function createMainGui()
     joinButton.AnchorPoint = Vector2.new(0.5, 0.5)
 
     local function updateTargetVersionFromInput()
-        if not versionInputBox then return end -- Guard against GUI not fully ready
+        if not versionInputBox then return end 
         local num = tonumber(versionInputBox.Text)
         if num and num > 0 then
             CURRENT_TARGET_MAX_VERSION = math.floor(num) 
@@ -136,7 +182,7 @@ local function createMainGui()
         end
     end
 
-    if versionInputBox then -- Ensure it exists before connecting
+    if versionInputBox then 
         versionInputBox.FocusLost:Connect(function(enterPressed)
             if enterPressed then updateTargetVersionFromInput() end
         end)
@@ -155,7 +201,13 @@ local function createMainGui()
         quickNotify("Searching Pastebin for servers <= V" .. CURRENT_TARGET_MAX_VERSION, 3)
         coroutine.wrap(runMainLogic)("join_master")
     end)
+    print("DEBUG: createMainGui: All GUI elements should be created and connections set.")
 end
+
+-- Functions: getPasteKeyFromFile, savePasteKeyToFile, getRawPasteContent, HttpPostAsync
+-- createPastebinPaste, deletePastebinPaste, updatePastebinList, ensurePastebinListExists, loadServerListFromPastebin
+-- (These are assumed to be the same as version 1.2.6 and are omitted here for brevity, but they are part of the full script)
+-- PASTE THE CONTENT OF THESE FUNCTIONS FROM THE PREVIOUS VERSION HERE
 
 local function getPasteKeyFromFile(filename)
     if isfile and isfile(filename) then
@@ -196,13 +248,9 @@ end)
 
 local function createPastebinPaste(name, content)
     if not HttpPostAsync then quickNotify("HttpPostAsync not available!", 5); return nil, "HTTP POST not available" end
-    if PASTEBIN_API_DEV_KEY == "U8CrZNTgDnfYoJ2mDC3Px1mVqhpMG5wz" and ACQUIRED_API_USER_KEY == "8bd62df35cbba6ade9f28b23e560baf1" then 
-        -- This is just to catch if the default example dev key is still there, as it won't work.
-        -- The actual keys are used below.
-    elseif PASTEBIN_API_DEV_KEY == "" or PASTEBIN_API_DEV_KEY:find("YOUR_") then -- More generic check for placeholder
+    if PASTEBIN_API_DEV_KEY == "" or PASTEBIN_API_DEV_KEY:find("YOUR_") then 
         quickNotify("Pastebin Dev Key not configured!", 5); return nil, "Dev key not set"
     end
-
 
     if #content > MAX_PASTE_SIZE_BYTES then
         quickNotify("Error: Content for paste '" .. name .. "' is too large (" .. #content .. " bytes). Max is ~"..math.floor(MAX_PASTE_SIZE_BYTES/1024) .."KB. Paste not created.", 10)
@@ -392,10 +440,9 @@ local function loadServerListFromPastebin(pasteKey)
     return serversSet, serverDetails
 end
 
--- Main function for different operational modes
 function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5) 
     if not player then player = Players.LocalPlayer end
-    if not player then quickNotify("LocalPlayer not found!", 5); return end
+    if not player then print("DEBUG runMainLogic: LocalPlayer not found!"); quickNotify("LocalPlayer not found!", 5); return end
 
     if mode ~= "initial_gui" and mode ~= "join_master_fetch_list" then
         if game.PlaceId ~= TARGET_PLACE_ID then
@@ -405,11 +452,24 @@ function runMainLogic(mode, arg1, arg2, arg3, arg4, arg5)
         end
     end
     
-    print("Running Mode:", mode, arg1, arg2, arg3, arg4, arg5)
+    print("DEBUG runMainLogic: Running Mode:", mode, arg1, arg2, arg3, arg4, arg5)
     local effectiveTargetMaxVersion = CURRENT_TARGET_MAX_VERSION 
 
     if mode == "initial_gui" then
-        pcall(createMainGui)
+        print("DEBUG runMainLogic: mode is initial_gui, calling createMainGui via pcall...")
+        local success, err = pcall(createMainGui)
+        if not success then
+            print("DEBUG: Error occurred inside pcall(createMainGui):")
+            print("DEBUG: Error message:", tostring(err))
+            warn("Error in createMainGui via pcall:", err)
+        else
+            print("DEBUG: pcall(createMainGui) was successful.")
+            if mainGui and mainGui.Parent then
+                 print("DEBUG: mainGui was created and parented to: " .. mainGui.Parent:GetFullName())
+            else
+                 print("DEBUG: mainGui was NOT found or not parented after createMainGui call.")
+            end
+        end
 
     elseif mode == "search_master" then
         local oldListOK = ensurePastebinListExists("old")
@@ -550,7 +610,8 @@ local function antiAfk()
 end
 
 local function main() 
-    CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION -- Initialize/reset to default on each full script load
+    CURRENT_TARGET_MAX_VERSION = DEFAULT_TARGET_MAX_VERSION 
+    print("DEBUG main(): Initializing CURRENT_TARGET_MAX_VERSION to default: " .. CURRENT_TARGET_MAX_VERSION)
     quickNotify("Target Version initially <= " .. CURRENT_TARGET_MAX_VERSION, 4)
 
     local configError = false
@@ -575,13 +636,17 @@ local function main()
                 player = p; 
                 if playerAddedConn then playerAddedConn:Disconnect(); playerAddedConn = nil; end
                 antiAfk(); 
+                print("DEBUG main(): Player just added, calling runMainLogic('initial_gui')")
                 runMainLogic("initial_gui") 
             end
         end)
     else
         antiAfk()
         if not (mainGui and mainGui.Parent) then
+             print("DEBUG main(): Player exists, GUI not up, calling runMainLogic('initial_gui')")
              runMainLogic("initial_gui")
+        else
+             print("DEBUG main(): Player exists, GUI already up. Doing nothing further in main().")
         end
     end
     
