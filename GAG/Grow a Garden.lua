@@ -6,9 +6,7 @@
 -- ------------------------------------------------------------------------------------
 -- CONFIGURATION - !!! VERIFY ALL VALUES !!!
 -- ------------------------------------------------------------------------------------
-local PASTEBIN_API_DEV_KEY = "U8CrZNTgDnfYoJ2mDC3Px1mVqhpMG5wz"
-local ACQUIRED_API_USER_KEY = "8bd62df35cbba6ade9f28b23e560baf1"
-local SCRIPT_RELOAD_URL = "https://raw.githubusercontent.com/zryr/Old-Server-Finder/refs/heads/main/Grow%20a%20Garden.lua"
+local PASTEBIN_API_DEV_KEY = "%20a%20Garden.lua"
 
 local DEFAULT_TARGET_MAX_VERSION = 1226 -- This was TARGET_MAX_VERSION in 1.2.2
 
